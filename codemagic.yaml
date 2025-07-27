@@ -1,12 +1,13 @@
 workflows:
   basic-android-build:
-    name: Smart Budget Tracker Build Fixed
+    name: Smart Budget Tracker JDK17 Build
     max_build_duration: 60
     instance_type: mac_mini_m1
     environment:
       node: 16.20.0
       npm: 8.19.4
-      java: 11
+      java: 17
+      ndk: r21e
     cache:
       cache_paths:
         - $CM_BUILD_DIR/node_modules
@@ -19,10 +20,6 @@ workflows:
           include: true
           source: true
     scripts:
-      - name: Set up Android SDK
-        script: |
-          $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager "ndk;21.4.7075529"
-          
       - name: Create React Native project
         script: |
           npx react-native@latest init SmartBudgetApp --version 0.72.6
@@ -32,21 +29,29 @@ workflows:
         script: |
           cd SmartBudgetApp/android
           echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
-          echo "org.gradle.jvmargs=-Xmx3072M" >> gradle.properties
+          echo "org.gradle.jvmargs=-Xmx3072M -XX:MaxMetaspaceSize=1024m" >> gradle.properties
           echo "android.useAndroidX=true" >> gradle.properties
           echo "android.enableJetifier=true" >> gradle.properties
-          echo "android.ndkVersion=21.4.7075529" >> gradle.properties
+          echo "org.gradle.daemon=false" >> gradle.properties
           
       - name: Build Android APK
         script: |
           cd SmartBudgetApp/android
           chmod +x gradlew
-          ./gradlew assembleRelease --no-daemon
+          ./gradlew clean --no-daemon
+          ./gradlew assembleRelease --no-daemon --stacktrace
           
       - name: Copy APK
         script: |
           cd SmartBudgetApp
-          cp android/app/build/outputs/apk/release/app-release.apk ../smart-budget-tracker.apk
+          if [ -f android/app/build/outputs/apk/release/app-release.apk ]; then
+            cp android/app/build/outputs/apk/release/app-release.apk ../smart-budget-tracker.apk
+            echo "APK copied successfully"
+            ls -la ../smart-budget-tracker.apk
+          else
+            echo "APK not found, checking build outputs:"
+            find android/app/build/outputs -name "*.apk" -type f
+          fi
           
     artifacts:
       - smart-budget-tracker.apk
