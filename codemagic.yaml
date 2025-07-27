@@ -1,163 +1,4 @@
 workflows:
-  react-native-android:
-    name: Smart Budget Tracker Android Build
-    max_build_duration: 60
-    instance_type: mac_mini_m1
-    environment:
-      android_signing:
-        - keystore_reference
-      groups:
-        - google_play
-      vars:
-        PACKAGE_NAME: "com.smartbudgettracker"
-        GOOGLE_PLAY_TRACK: "internal"
-      node: 18.17.0
-      npm: latest
-      ndk: r25c
-      java: 17
-    cache:
-      cache_paths:
-        - $CM_BUILD_DIR/node_modules
-        - ~/.gradle/caches
-        - $HOME/.m2/repository
-    triggering:
-      events:
-        - push
-        - tag
-        - pull_request
-      branch_patterns:
-        - pattern: develop
-          include: true
-          source: true
-        - pattern: main
-          include: true
-          source: true
-        - pattern: master
-          include: true
-          source: true
-    scripts:
-      - name: Install npm dependencies
-        script: |
-          cd react-native-app
-          npm ci
-      - name: Install CocoaPods dependencies (iOS only)
-        script: |
-          # Skip for Android builds
-          echo "Skipping CocoaPods for Android build"
-      - name: Set Android SDK location
-        script: |
-          echo "sdk.dir=$ANDROID_SDK_ROOT" > "$CM_BUILD_DIR/react-native-app/android/local.properties"
-      - name: Set up keystore
-        script: |
-          cd react-native-app/android
-          echo $CM_KEYSTORE | base64 --decode > $CM_KEYSTORE_PATH
-          cat >> gradle.properties <<EOF
-          MYAPP_UPLOAD_STORE_FILE=$CM_KEYSTORE_PATH
-          MYAPP_UPLOAD_KEY_ALIAS=$CM_KEY_ALIAS
-          MYAPP_UPLOAD_STORE_PASSWORD=$CM_KEYSTORE_PASSWORD
-          MYAPP_UPLOAD_KEY_PASSWORD=$CM_KEY_PASSWORD
-          EOF
-      - name: Build Android APK
-        script: |
-          cd react-native-app
-          npx expo run:android --variant release --no-build-cache
-      - name: Build Android AAB
-        script: |
-          cd react-native-app/android
-          ./gradlew bundleRelease
-    artifacts:
-      - react-native-app/android/app/build/outputs/**/*.apk
-      - react-native-app/android/app/build/outputs/**/*.aab
-    publishing:
-      email:
-        recipients:
-          - kissonFloyd@example.com
-        notify:
-          success: true
-          failure: true
-      google_play:
-        credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
-        track: internal
-        submit_as_draft: true
-
-  react-native-ios:
-    name: Smart Budget Tracker iOS Build
-    max_build_duration: 60
-    instance_type: mac_mini_m1
-    environment:
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.kissonFloyd.smartbudgettracker
-      groups:
-        - app_store_connect
-      vars:
-        BUNDLE_ID: "com.kissonFloyd.smartbudgettracker"
-        XCODE_WORKSPACE: "SmartBudgetTracker.xcworkspace"
-        XCODE_SCHEME: "SmartBudgetTracker"
-      node: 18.17.0
-      npm: latest
-      xcode: latest
-      cocoapods: default
-    cache:
-      cache_paths:
-        - $CM_BUILD_DIR/node_modules
-        - $HOME/Library/Caches/CocoaPods
-    triggering:
-      events:
-        - push
-        - tag
-        - pull_request
-      branch_patterns:
-        - pattern: develop
-          include: true
-          source: true
-        - pattern: main
-          include: true
-          source: true
-        - pattern: master
-          include: true
-          source: true
-    scripts:
-      - name: Install npm dependencies
-        script: |
-          cd react-native-app
-          npm ci
-      - name: Install CocoaPods dependencies
-        script: |
-          cd react-native-app/ios
-          pod install
-      - name: Set up provisioning profiles
-        script: |
-          keychain initialize
-          app-store-connect fetch-signing-files $BUNDLE_ID --type IOS_APP_STORE --create
-          keychain add-certificates
-          xcode-project use-profiles
-      - name: Increment build number
-        script: |
-          cd react-native-app
-          agvtool new-version -all $(($BUILD_NUMBER + 1))
-      - name: Build iOS app
-        script: |
-          cd react-native-app
-          npx expo run:ios --configuration Release
-    artifacts:
-      - build/ios/ipa/*.ipa
-      - /tmp/xcodebuild_logs/*.log
-      - react-native-app/ios/build/Build/Products/Release-iphoneos/*.app
-    publishing:
-      email:
-        recipients:
-          - kissonFloyd@example.com
-        notify:
-          success: true
-          failure: true
-      app_store_connect:
-        auth: integration
-        submit_to_testflight: true
-        beta_groups:
-          - App Store Connect Users
-        submit_to_app_store: false
-
   expo-build:
     name: Smart Budget Tracker Expo Build
     max_build_duration: 60
@@ -194,19 +35,62 @@ workflows:
       - name: Build Android APK with Expo
         script: |
           cd react-native-app
-          expo build:android --type apk --non-interactive
-      - name: Build Android AAB with Expo
-        script: |
-          cd react-native-app
-          expo build:android --type app-bundle --non-interactive
-      - name: Build iOS IPA with Expo
-        script: |
-          cd react-native-app
-          expo build:ios --type archive --non-interactive
+          eas build --platform android --profile preview --non-interactive
     artifacts:
       - react-native-app/*.apk
       - react-native-app/*.aab
-      - react-native-app/*.ipa
+    publishing:
+      email:
+        recipients:
+          - kissonFloyd@example.com
+        notify:
+          success: true
+          failure: true
+
+  react-native-android:
+    name: Smart Budget Tracker Android Build
+    max_build_duration: 60
+    instance_type: mac_mini_m1
+    environment:
+      android_signing:
+        - keystore_reference
+      groups:
+        - google_play
+      vars:
+        PACKAGE_NAME: "com.smartbudgettracker"
+        GOOGLE_PLAY_TRACK: "internal"
+      node: 18.17.0
+      npm: latest
+      ndk: r25c
+      java: 17
+    cache:
+      cache_paths:
+        - $CM_BUILD_DIR/node_modules
+        - ~/.gradle/caches
+    triggering:
+      events:
+        - push
+        - tag
+        - pull_request
+      branch_patterns:
+        - pattern: main
+          include: true
+          source: true
+    scripts:
+      - name: Install npm dependencies
+        script: |
+          cd react-native-app
+          npm ci
+      - name: Set Android SDK location
+        script: |
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > "$CM_BUILD_DIR/react-native-app/android/local.properties"
+      - name: Build Android APK
+        script: |
+          cd react-native-app
+          eas build --platform android --profile preview --non-interactive
+    artifacts:
+      - react-native-app/android/app/build/outputs/**/*.apk
+      - react-native-app/android/app/build/outputs/**/*.aab
     publishing:
       email:
         recipients:
