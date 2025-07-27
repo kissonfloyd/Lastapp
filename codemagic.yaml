@@ -9,7 +9,7 @@ workflows:
       vars:
         EXPO_TOKEN: $EXPO_TOKEN
       node: 18.17.0
-      npm: 9.6.7
+      npm: 8.19.4
     cache:
       cache_paths:
         - $CM_BUILD_DIR/node_modules
@@ -24,19 +24,20 @@ workflows:
       - name: Install npm dependencies
         script: |
           cd react-native-app
-          npm install
+          npm install --legacy-peer-deps
       - name: Install Expo CLI
         script: |
-          npm install -g @expo/cli@latest
+          npm install -g expo-cli@6.3.10
+      - name: Expo login
+        script: |
+          cd react-native-app
+          expo login --non-interactive
       - name: Build Android APK with Expo
         script: |
           cd react-native-app
-          npx expo install --fix
-          npx expo prebuild --platform android
-          npx eas build --platform android --local --profile preview
+          expo build:android --type apk --non-interactive
     artifacts:
-      - react-native-app/build-*.apk
-      - react-native-app/build-*.aab
+      - react-native-app/*.apk
     publishing:
       email:
         recipients:
