@@ -1,6 +1,6 @@
 workflows:
-  basic-android-build:
-    name: Smart Budget Tracker Simple Build
+  android-build:
+    name: Smart Budget Tracker APK
     max_build_duration: 60
     instance_type: mac_mini_m1
     environment:
@@ -18,33 +18,40 @@ workflows:
           include: true
           source: true
     scripts:
-      - name: Create React Native project
+      - name: Create basic React Native app
         script: |
-          npx @react-native-community/cli@latest init SmartBudgetApp
-          cd SmartBudgetApp
+          npx @react-native-community/cli@latest init BudgetApp
+          cd BudgetApp
           
-      - name: Configure for build
+      - name: Setup Android build
         script: |
-          cd SmartBudgetApp/android
+          cd BudgetApp/android
           echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
           echo "org.gradle.jvmargs=-Xmx4096M" >> gradle.properties
           echo "android.useAndroidX=true" >> gradle.properties
           echo "android.enableJetifier=true" >> gradle.properties
-          echo "org.gradle.daemon=false" >> gradle.properties
           
-      - name: Build APK
+      - name: Build Android APK
         script: |
-          cd SmartBudgetApp
-          npx react-native build-android --mode=release
+          cd BudgetApp/android
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon
           
-      - name: Copy APK file
+      - name: Prepare APK
         script: |
-          cd SmartBudgetApp
-          find android -name "*.apk" -type f -exec cp {} ../smart-budget-tracker.apk \;
-          ls -la ../smart-budget-tracker.apk || echo "APK not found"
+          cd BudgetApp
+          APK_PATH=$(find android/app/build/outputs/apk/release -name "*.apk" | head -1)
+          if [ -f "$APK_PATH" ]; then
+            cp "$APK_PATH" ../SmartBudgetTracker.apk
+            echo "✅ APK created successfully!"
+            ls -la ../SmartBudgetTracker.apk
+          else
+            echo "❌ APK not found!"
+            find android/app/build -name "*.apk" -type f
+          fi
           
     artifacts:
-      - smart-budget-tracker.apk
+      - SmartBudgetTracker.apk
     publishing:
       email:
         recipients:
