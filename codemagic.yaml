@@ -1,15 +1,13 @@
 workflows:
-  expo-build:
-    name: Smart Budget Tracker Expo Build
+  basic-android-build:
+    name: Smart Budget Tracker Basic Build
     max_build_duration: 60
     instance_type: mac_mini_m1
     environment:
-      groups:
-        - expo
-      vars:
-        EXPO_TOKEN: $EXPO_TOKEN
-      node: 18.17.0
+      node: 16.20.0
       npm: 8.19.4
+      ndk: r23c
+      java: 11
     cache:
       cache_paths:
         - $CM_BUILD_DIR/node_modules
@@ -21,23 +19,33 @@ workflows:
           include: true
           source: true
     scripts:
-      - name: Install npm dependencies
+      - name: Create basic React Native project
         script: |
-          cd react-native-app
-          npm install --legacy-peer-deps
-      - name: Install Expo CLI
+          npx react-native@latest init SmartBudgetTracker --version 0.72.6
+          cd SmartBudgetTracker
+          
+          # Copy app.json configuration
+          cat > app.json << 'EOF'
+          {
+            "name": "Smart Budget Tracker",
+            "displayName": "Smart Budget Tracker",
+            "version": "1.0.0"
+          }
+          EOF
+          
+      - name: Build Android APK
         script: |
-          npm install -g expo-cli@6.3.10
-      - name: Expo login
+          cd SmartBudgetTracker
+          cd android
+          ./gradlew assembleRelease
+          
+      - name: Copy APK to artifacts
         script: |
-          cd react-native-app
-          expo login --non-interactive
-      - name: Build Android APK with Expo
-        script: |
-          cd react-native-app
-          expo build:android --type apk --non-interactive
+          cd SmartBudgetTracker
+          cp android/app/build/outputs/apk/release/app-release.apk ../smart-budget-tracker.apk
+          
     artifacts:
-      - react-native-app/*.apk
+      - smart-budget-tracker.apk
     publishing:
       email:
         recipients:
