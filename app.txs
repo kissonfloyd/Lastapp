@@ -1,0 +1,80 @@
+import React from 'react';
+import { NavigationContainer } from '@react-navigation/native';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { Ionicons } from '@expo/vector-icons';
+import { BudgetProvider } from './src/context/BudgetContext';
+import WelcomeScreen from './src/screens/WelcomeScreen';
+import BudgetScreen from './src/screens/BudgetScreen';
+import ExpenseScreen from './src/screens/ExpenseScreen';
+import AnalyticsScreen from './src/screens/AnalyticsScreen';
+
+const Tab = createBottomTabNavigator();
+
+export default function App() {
+  return (
+    <BudgetProvider>
+      <NavigationContainer>
+        <Tab.Navigator
+          screenOptions={({ route }) => ({
+            tabBarIcon: ({ focused, color, size }) => {
+              let iconName: keyof typeof Ionicons.glyphMap;
+
+              if (route.name === 'स्वागत') {
+                iconName = focused ? 'home' : 'home-outline';
+              } else if (route.name === 'बजेट') {
+                iconName = focused ? 'wallet' : 'wallet-outline';
+              } else if (route.name === 'खर्च') {
+                iconName = focused ? 'receipt' : 'receipt-outline';
+              } else if (route.name === 'विश्लेषण') {
+                iconName = focused ? 'analytics' : 'analytics-outline';
+              } else {
+                iconName = 'circle';
+              }
+
+              return <Ionicons name={iconName} size={size} color={color} />;
+            },
+            tabBarActiveTintColor: '#FF6B35',
+            tabBarInactiveTintColor: 'gray',
+            tabBarStyle: {
+              backgroundColor: '#FFFFFF',
+              borderTopWidth: 1,
+              borderTopColor: '#E0E0E0',
+              height: 60,
+              paddingBottom: 8,
+              paddingTop: 8,
+            },
+            headerStyle: {
+              backgroundColor: '#FF6B35',
+            },
+            headerTintColor: '#FFFFFF',
+            headerTitleStyle: {
+              fontWeight: 'bold',
+              fontSize: 18,
+            },
+          })}
+        >
+          <Tab.Screen 
+            name="स्वागत" 
+            component={WelcomeScreen}
+            options={{ title: 'स्वागत' }}
+          />
+          <Tab.Screen 
+            name="बजेट" 
+            component={BudgetScreen}
+            options={{ title: 'मेरे बजेट' }}
+          />
+          <Tab.Screen 
+            name="खर्च" 
+            component={ExpenseScreen}
+            options={{ title: 'मेरे खर्च' }}
+          />
+          <Tab.Screen 
+            name="विश्लेषण" 
+            component={AnalyticsScreen}
+            options={{ title: 'विश्लेषण' }}
+          />
+        </Tab.Navigator>
+      </NavigationContainer>
+    </BudgetProvider>
+  );
+}
