@@ -1,17 +1,15 @@
 workflows:
   basic-android-build:
-    name: Smart Budget Tracker JDK17 Build
+    name: Smart Budget Tracker Simple Build
     max_build_duration: 60
     instance_type: mac_mini_m1
     environment:
-      node: 16.20.0
-      npm: 8.19.4
+      node: 18.17.0
+      npm: 9.6.7
       java: 17
-      ndk: r21e
     cache:
       cache_paths:
         - $CM_BUILD_DIR/node_modules
-        - ~/.gradle/caches
     triggering:
       events:
         - push
@@ -22,36 +20,28 @@ workflows:
     scripts:
       - name: Create React Native project
         script: |
-          npx react-native@latest init SmartBudgetApp --version 0.72.6
+          npx @react-native-community/cli@latest init SmartBudgetApp
           cd SmartBudgetApp
           
-      - name: Configure Android build
+      - name: Configure for build
         script: |
           cd SmartBudgetApp/android
           echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
-          echo "org.gradle.jvmargs=-Xmx3072M -XX:MaxMetaspaceSize=1024m" >> gradle.properties
+          echo "org.gradle.jvmargs=-Xmx4096M" >> gradle.properties
           echo "android.useAndroidX=true" >> gradle.properties
           echo "android.enableJetifier=true" >> gradle.properties
           echo "org.gradle.daemon=false" >> gradle.properties
           
-      - name: Build Android APK
-        script: |
-          cd SmartBudgetApp/android
-          chmod +x gradlew
-          ./gradlew clean --no-daemon
-          ./gradlew assembleRelease --no-daemon --stacktrace
-          
-      - name: Copy APK
+      - name: Build APK
         script: |
           cd SmartBudgetApp
-          if [ -f android/app/build/outputs/apk/release/app-release.apk ]; then
-            cp android/app/build/outputs/apk/release/app-release.apk ../smart-budget-tracker.apk
-            echo "APK copied successfully"
-            ls -la ../smart-budget-tracker.apk
-          else
-            echo "APK not found, checking build outputs:"
-            find android/app/build/outputs -name "*.apk" -type f
-          fi
+          npx react-native build-android --mode=release
+          
+      - name: Copy APK file
+        script: |
+          cd SmartBudgetApp
+          find android -name "*.apk" -type f -exec cp {} ../smart-budget-tracker.apk \;
+          ls -la ../smart-budget-tracker.apk || echo "APK not found"
           
     artifacts:
       - smart-budget-tracker.apk
