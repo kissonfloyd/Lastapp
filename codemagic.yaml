@@ -1,16 +1,16 @@
 workflows:
   basic-android-build:
-    name: Smart Budget Tracker Basic Build
+    name: Smart Budget Tracker Build Fixed
     max_build_duration: 60
     instance_type: mac_mini_m1
     environment:
       node: 16.20.0
       npm: 8.19.4
-      ndk: r23c
       java: 11
     cache:
       cache_paths:
         - $CM_BUILD_DIR/node_modules
+        - ~/.gradle/caches
     triggering:
       events:
         - push
@@ -19,29 +19,33 @@ workflows:
           include: true
           source: true
     scripts:
-      - name: Create basic React Native project
+      - name: Set up Android SDK
         script: |
-          npx react-native@latest init SmartBudgetTracker --version 0.72.6
-          cd SmartBudgetTracker
+          $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager "ndk;21.4.7075529"
           
-          # Copy app.json configuration
-          cat > app.json << 'EOF'
-          {
-            "name": "Smart Budget Tracker",
-            "displayName": "Smart Budget Tracker",
-            "version": "1.0.0"
-          }
-          EOF
+      - name: Create React Native project
+        script: |
+          npx react-native@latest init SmartBudgetApp --version 0.72.6
+          cd SmartBudgetApp
+          
+      - name: Configure Android build
+        script: |
+          cd SmartBudgetApp/android
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
+          echo "org.gradle.jvmargs=-Xmx3072M" >> gradle.properties
+          echo "android.useAndroidX=true" >> gradle.properties
+          echo "android.enableJetifier=true" >> gradle.properties
+          echo "android.ndkVersion=21.4.7075529" >> gradle.properties
           
       - name: Build Android APK
         script: |
-          cd SmartBudgetTracker
-          cd android
-          ./gradlew assembleRelease
+          cd SmartBudgetApp/android
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon
           
-      - name: Copy APK to artifacts
+      - name: Copy APK
         script: |
-          cd SmartBudgetTracker
+          cd SmartBudgetApp
           cp android/app/build/outputs/apk/release/app-release.apk ../smart-budget-tracker.apk
           
     artifacts:
