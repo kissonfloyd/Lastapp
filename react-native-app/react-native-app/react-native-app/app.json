@@ -1,0 +1,66 @@
+{
+  "expo": {
+    "name": "Smart Budget Tracker",
+    "slug": "smart-budget-tracker",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "backgroundColor": "#FF6B35",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FF6B35"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.kissonFloyd.smartbudgettracker",
+      "buildNumber": "1"
+    },
+    "android": {
+      "package": "com.smartbudgettracker",
+      "versionCode": 1,
+      "compileSdkVersion": 34,
+      "targetSdkVersion": 34,
+      "buildToolsVersion": "34.0.0",
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.READ_MEDIA_IMAGES"
+      ],
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#FF6B35"
+      }
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-dev-client",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow Smart Budget Tracker to access your camera to take receipt photos."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Smart Budget Tracker to access your photos to upload receipts.",
+          "cameraPermission": "Allow Smart Budget Tracker to access your camera to take receipt photos."
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "smart-budget-tracker-kissonFloyd"
+      }
+    }
+  }
+}
