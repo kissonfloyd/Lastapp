@@ -1,15 +1,17 @@
 workflows:
-  android-build:
-    name: Smart Budget Tracker APK
+  smart-budget-tracker-android:
+    name: Smart Budget Tracker - Android APK
     max_build_duration: 60
     instance_type: mac_mini_m1
     environment:
       node: 18.17.0
       npm: 9.6.7
       java: 17
+      android: 34
     cache:
       cache_paths:
         - $CM_BUILD_DIR/node_modules
+        - ~/.gradle/caches
     triggering:
       events:
         - push
@@ -18,40 +20,43 @@ workflows:
           include: true
           source: true
     scripts:
-      - name: Create basic React Native app
+      - name: Install dependencies
         script: |
-          npx @react-native-community/cli@latest init BudgetApp
-          cd BudgetApp
+          cd react-native-app
+          npm install
           
-      - name: Setup Android build
+      - name: Configure Android build
         script: |
-          cd BudgetApp/android
+          cd react-native-app/android
           echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
           echo "org.gradle.jvmargs=-Xmx4096M" >> gradle.properties
           echo "android.useAndroidX=true" >> gradle.properties
           echo "android.enableJetifier=true" >> gradle.properties
+          echo "org.gradle.daemon=false" >> gradle.properties
           
       - name: Build Android APK
         script: |
-          cd BudgetApp/android
+          cd react-native-app/android
           chmod +x gradlew
+          ./gradlew clean
           ./gradlew assembleRelease --no-daemon
           
-      - name: Prepare APK
+      - name: Copy APK to artifacts
         script: |
-          cd BudgetApp
-          APK_PATH=$(find android/app/build/outputs/apk/release -name "*.apk" | head -1)
-          if [ -f "$APK_PATH" ]; then
-            cp "$APK_PATH" ../SmartBudgetTracker.apk
-            echo "✅ APK created successfully!"
-            ls -la ../SmartBudgetTracker.apk
+          cd react-native-app
+          APK_FILE=$(find android/app/build/outputs/apk/release -name "*.apk" -type f | head -1)
+          if [ -f "$APK_FILE" ]; then
+            cp "$APK_FILE" ../smart-budget-tracker.apk
+            echo "✅ Smart Budget Tracker APK ready!"
+            ls -la ../smart-budget-tracker.apk
+            echo "APK size: $(du -h ../smart-budget-tracker.apk | cut -f1)"
           else
             echo "❌ APK not found!"
-            find android/app/build -name "*.apk" -type f
+            find . -name "*.apk" -type f 2>/dev/null || echo "No APK files found"
           fi
           
     artifacts:
-      - SmartBudgetTracker.apk
+      - smart-budget-tracker.apk
     publishing:
       email:
         recipients:
