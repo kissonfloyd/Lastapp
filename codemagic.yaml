@@ -1,8 +1,32 @@
 workflows:
   web-to-mobile-apk:
     name: Smart Budget Tracker - Web to Mobile APK (Exact Visual Match)
-    # ... (previous configuration) ...
+    max_build_duration: 60
+    instance_type: mac_mini_m1
+    environment:
+      node: 20.11.0
+      npm: 10.2.4
+      java: 17
+    cache:
+      cache_paths:
+        - $CM_BUILD_DIR/node_modules
+        - ~/.gradle/caches
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+          source: true
     scripts:
+      - name: Install dependencies
+        script: |
+          npm install
+          
+      - name: Install Capacitor
+        script: |
+          npm install @capacitor/core @capacitor/cli @capacitor/android
+          
       - name: Build sophisticated web app
         script: |
           # Build the existing sophisticated web app with shadcn/ui components
@@ -11,16 +35,16 @@ workflows:
           # Verify build output
           ls -la dist/public/
           
-      - name: Prepare Capacitor configuration
+      - name: Initialize Capacitor
         script: |
-          # Create Capacitor config pointing to correct build directory
+          # Create Capacitor config
           cat > capacitor.config.ts << 'EOF'
           import { CapacitorConfig } from '@capacitor/cli';
           
           const config: CapacitorConfig = {
             appId: 'com.smartbudgettracker',
             appName: 'Smart Budget Tracker',
-            webDir: 'dist/public',  // <- Fixed: points to correct directory
+            webDir: 'dist/public',
             server: {
               androidScheme: 'https'
             }
@@ -28,3 +52,52 @@ workflows:
           
           export default config;
           EOF
+          
+          # Initialize Capacitor with web app
+          npx cap init "Smart Budget Tracker" com.smartbudgettracker
+          
+      - name: Convert to mobile APK
+        script: |
+          # Add Android platform
+          npx cap add android
+          
+          # Copy web assets (preserves all styling and components)
+          npx cap copy
+          
+          # Ensure web assets are properly linked
+          npx cap sync
+          
+          # Verify web assets were copied
+          ls -la android/app/src/main/assets/public/
+          
+      - name: Build standalone APK
+        script: |
+          cd android
+          
+          # Create keystore for signing
+          keytool -genkey -v -keystore smart-budget-tracker.keystore \
+            -alias smartbudgettracker -keyalg RSA -keysize 2048 -validity 10000 \
+            -dname "CN=Smart Budget Tracker, OU=IT, O=Company, L=City, S=State, C=NP" \
+            -storepass smartbudget123 -keypass smartbudget123
+          
+          # Configure signing in build.gradle
+          sed -i 's/android {/android {\n    signingConfigs {\n        release {\n            storeFile file("smart-budget-tracker.keystore")\n            storePassword "smartbudget123"\n            keyAlias "smartbudgettracker"\n            keyPassword "smartbudget123"\n        }\n    }/' app/build.gradle
+          
+          sed -i 's/buildTypes {/buildTypes {\n        release {\n            signingConfig signingConfigs.release\n        }/' app/build.gradle
+          
+          # Build signed APK
+          ./gradlew assembleRelease
+          
+          # Verify APK exists
+          ls -la app/build/outputs/apk/release/
+          
+    artifacts:
+      - android/app/build/outputs/apk/release/*.apk
+      - android/app/build/outputs/bundle/release/*.aab
+    publishing:
+      email:
+        recipients:
+          - smartbudgettracker@example.com
+        notify:
+          success: true
+          failure: true
