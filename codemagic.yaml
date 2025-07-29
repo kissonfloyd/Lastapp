@@ -19,40 +19,139 @@ workflows:
           include: true
           source: true
     scripts:
-      - name: Create React Native project
+      - name: Create basic React Native project
         script: |
           npx @react-native-community/cli@latest init SmartBudgetTracker
           cd SmartBudgetTracker
           
-      - name: Install Smart Budget Tracker dependencies
+      - name: Create Smart Budget Tracker app
         script: |
           cd SmartBudgetTracker
-          npm install @react-native-async-storage/async-storage@1.19.3
-          npm install @react-navigation/native@6.1.9
-          npm install @react-navigation/bottom-tabs@6.5.11
-          npm install @react-navigation/stack@6.3.20
-          npm install react-native-safe-area-context@4.6.3
-          npm install react-native-screens@3.22.0
-          npm install react-native-chart-kit@6.12.0
-          npm install react-native-svg@13.9.0
-          
-      - name: Copy Smart Budget Tracker source code
-        script: |
-          # Copy app files from repository
-          if [ -d "$CM_BUILD_DIR/react-native-app/src" ]; then
-            cp -r $CM_BUILD_DIR/react-native-app/src SmartBudgetTracker/
-            echo "✅ Copied Smart Budget Tracker source files"
-          else
-            echo "⚠️ No source files found, using template"
-          fi
-          
-          # Copy App.tsx if it exists
-          if [ -f "$CM_BUILD_DIR/react-native-app/App.tsx" ]; then
-            cp $CM_BUILD_DIR/react-native-app/App.tsx SmartBudgetTracker/
-            echo "✅ Copied Smart Budget Tracker App.tsx"
-          else
-            echo "⚠️ No App.tsx found, using template"
-          fi
+          cat > App.tsx << 'EOF'
+          import React from 'react';
+          import { View, Text, StyleSheet, ScrollView, StatusBar } from 'react-native';
+
+          const App = () => {
+            return (
+              <>
+                <StatusBar barStyle="light-content" backgroundColor="#FF6B35" />
+                <ScrollView style={styles.container}>
+                  <View style={styles.header}>
+                    <Text style={styles.title}>स्मार्ट बजेट ट्र्याकर</Text>
+                    <Text style={styles.subtitle}>Smart Budget Tracker</Text>
+                  </View>
+                  
+                  <View style={styles.content}>
+                    <Text style={styles.sectionTitle}>स्वागत छ!</Text>
+                    <Text style={styles.description}>
+                      तपाईंको व्यक्तिगत बजेट र खर्च व्यवस्थापन गर्न डिजाइन गरिएको एप
+                    </Text>
+                    
+                    <View style={styles.feature}>
+                      <Text style={styles.featureTitle}>🏦 बजेट व्यवस्थापन</Text>
+                      <Text style={styles.featureDesc}>आफ्ना बजेटहरू सिर्जना र ट्र्याक गर्नुहोस्</Text>
+                    </View>
+                    
+                    <View style={styles.feature}>
+                      <Text style={styles.featureTitle}>💸 खर्च ट्र्याकिंग</Text>
+                      <Text style={styles.featureDesc}>दैनिक खर्चहरू रेकर्ड गर्नुहोस्</Text>
+                    </View>
+                    
+                    <View style={styles.feature}>
+                      <Text style={styles.featureTitle}>📊 एनालिटिक्स</Text>
+                      <Text style={styles.featureDesc}>तपाईंको खर्च बिश्लेषण हेर्नुहोस्</Text>
+                    </View>
+                    
+                    <View style={styles.feature}>
+                      <Text style={styles.featureTitle}>📷 रसिद फोटो</Text>
+                      <Text style={styles.featureDesc}>रसिदका फोटोहरू संग्रह गर्नुहोस्</Text>
+                    </View>
+                  </View>
+                  
+                  <View style={styles.footer}>
+                    <Text style={styles.footerText}>KissonFloyd द्वारा निर्मित</Text>
+                    <Text style={styles.version}>संस्करण 1.0.0</Text>
+                  </View>
+                </ScrollView>
+              </>
+            );
+          };
+
+          const styles = StyleSheet.create({
+            container: {
+              flex: 1,
+              backgroundColor: '#F8F9FA',
+            },
+            header: {
+              backgroundColor: '#FF6B35',
+              padding: 30,
+              alignItems: 'center',
+            },
+            title: {
+              fontSize: 28,
+              fontWeight: 'bold',
+              color: '#FFFFFF',
+              marginBottom: 5,
+            },
+            subtitle: {
+              fontSize: 16,
+              color: '#FFE4D6',
+            },
+            content: {
+              padding: 20,
+            },
+            sectionTitle: {
+              fontSize: 24,
+              fontWeight: 'bold',
+              color: '#2C3E50',
+              marginBottom: 15,
+            },
+            description: {
+              fontSize: 16,
+              color: '#5D6D7E',
+              marginBottom: 25,
+              lineHeight: 24,
+            },
+            feature: {
+              backgroundColor: '#FFFFFF',
+              padding: 20,
+              marginBottom: 15,
+              borderRadius: 12,
+              elevation: 2,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.1,
+              shadowRadius: 4,
+            },
+            featureTitle: {
+              fontSize: 18,
+              fontWeight: 'bold',
+              color: '#2C3E50',
+              marginBottom: 8,
+            },
+            featureDesc: {
+              fontSize: 14,
+              color: '#7F8C8D',
+              lineHeight: 20,
+            },
+            footer: {
+              padding: 20,
+              alignItems: 'center',
+              marginTop: 20,
+            },
+            footerText: {
+              fontSize: 14,
+              color: '#95A5A6',
+              marginBottom: 5,
+            },
+            version: {
+              fontSize: 12,
+              color: '#BDC3C7',
+            },
+          });
+
+          export default App;
+          EOF
           
       - name: Build Android APK
         script: |
