@@ -1,80 +1,1516 @@
-import React from 'react';
-import { NavigationContainer } from '@react-navigation/native';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Ionicons } from '@expo/vector-icons';
-import { BudgetProvider } from './src/context/BudgetContext';
-import WelcomeScreen from './src/screens/WelcomeScreen';
-import BudgetScreen from './src/screens/BudgetScreen';
-import ExpenseScreen from './src/screens/ExpenseScreen';
-import AnalyticsScreen from './src/screens/AnalyticsScreen';
 
-const Tab = createBottomTabNavigator();
+          import React, { useState, useEffect } from 'react';
+          import { View, Text, StyleSheet, ScrollView, StatusBar, TouchableOpacity, TextInput, Alert, Modal, Dimensions } from 'react-native';
 
-export default function App() {
-  return (
-    <BudgetProvider>
-      <NavigationContainer>
-        <Tab.Navigator
-          screenOptions={({ route }) => ({
-            tabBarIcon: ({ focused, color, size }) => {
-              let iconName: keyof typeof Ionicons.glyphMap;
+          const { width, height } = Dimensions.get('window');
 
-              if (route.name === 'स्वागत') {
-                iconName = focused ? 'home' : 'home-outline';
-              } else if (route.name === 'बजेट') {
-                iconName = focused ? 'wallet' : 'wallet-outline';
-              } else if (route.name === 'खर्च') {
-                iconName = focused ? 'receipt' : 'receipt-outline';
-              } else if (route.name === 'विश्लेषण') {
-                iconName = focused ? 'analytics' : 'analytics-outline';
-              } else {
-                iconName = 'circle';
+          interface Budget {
+            id: string;
+            name: string;
+            amount: number;
+            spent: number;
+            category: string;
+          }
+
+          interface Expense {
+            id: string;
+            budgetId: string;
+            description: string;
+            amount: number;
+            category: string;
+            date: string;
+          }
+
+          interface Challenge {
+            id: string;
+            title: string;
+            description: string;
+            points: number;
+            completed: boolean;
+            type: string;
+          }
+
+          interface Achievement {
+            id: string;
+            title: string;
+            description: string;
+            unlocked: boolean;
+            icon: string;
+          }
+
+          const App = () => {
+            const [showWelcome, setShowWelcome] = useState(true);
+            const [currentScreen, setCurrentScreen] = useState('dashboard');
+            const [budgets, setBudgets] = useState<Budget[]>([]);
+            const [expenses, setExpenses] = useState<Expense[]>([]);
+            const [challenges, setChallenges] = useState<Challenge[]>([]);
+            const [achievements, setAchievements] = useState<Achievement[]>([]);
+            const [userPoints, setUserPoints] = useState(0);
+            const [userLevel, setUserLevel] = useState(1);
+            const [budgetName, setBudgetName] = useState('');
+            const [budgetAmount, setBudgetAmount] = useState('');
+            const [budgetCategory, setBudgetCategory] = useState('सामान्य');
+            const [expenseDesc, setExpenseDesc] = useState('');
+            const [expenseAmount, setExpenseAmount] = useState('');
+            const [expenseCategory, setExpenseCategory] = useState('खाना');
+            const [selectedBudget, setSelectedBudget] = useState('');
+            const [showAchievement, setShowAchievement] = useState(false);
+            const [currentAchievement, setCurrentAchievement] = useState<Achievement | null>(null);
+            const [showInterstitialAd, setShowInterstitialAd] = useState(false);
+            const [expenseCount, setExpenseCount] = useState(0);
+            const [isPremium, setIsPremium] = useState(false);
+
+            const categories = ['खाना', 'यात्रा', 'किनमेल', 'मनोरञ्जन', 'स्वास्थ्य', 'शिक्षा', 'सामान्य'];
+            const budgetCategories = ['मासिक', 'साप्ताहिक', 'दैनिक', 'वार्षिक', 'सामान्य'];
+
+            useEffect(() => {
+              initializeChallenges();
+              initializeAchievements();
+            }, []);
+
+            const initializeChallenges = () => {
+              const defaultChallenges: Challenge[] = [
+                {
+                  id: '1',
+                  title: 'पहिलो बजेट',
+                  description: 'तपाईंको पहिलो बजेट सिर्जना गर्नुहोस्',
+                  points: 100,
+                  completed: false,
+                  type: 'budget'
+                },
+                {
+                  id: '2', 
+                  title: 'दैनिक ट्र्याकिंग',
+                  description: '७ दिन लगातार खर्च ट्र्याक गर्नुहोस्',
+                  points: 200,
+                  completed: false,
+                  type: 'streak'
+                },
+                {
+                  id: '3',
+                  title: 'बचत गुरु',
+                  description: 'बजेटको ५०% बचत गर्नुहोस्',
+                  points: 300,
+                  completed: false,
+                  type: 'saving'
+                }
+              ];
+              setChallenges(defaultChallenges);
+            };
+
+            const initializeAchievements = () => {
+              const defaultAchievements: Achievement[] = [
+                {
+                  id: '1',
+                  title: 'नौसिखिया',
+                  description: 'पहिलो बजेट सिर्जना गर्नुभयो',
+                  unlocked: false,
+                  icon: '🏆'
+                },
+                {
+                  id: '2',
+                  title: 'बचतकर्ता',
+                  description: '१००० रुपैयाँ बचत गर्नुभयो',
+                  unlocked: false,
+                  icon: '💰'
+                },
+                {
+                  id: '3',
+                  title: 'महागुरु',
+                  description: 'सबै चुनौतीहरू पूरा गर्नुभयो',
+                  unlocked: false,
+                  icon: '👑'
+                }
+              ];
+              setAchievements(defaultAchievements);
+            };
+
+            const checkAchievements = () => {
+              if (budgets.length >= 1 && !achievements[0].unlocked) {
+                unlockAchievement(achievements[0]);
               }
+              if (userPoints >= 500 && !achievements[1].unlocked) {
+                unlockAchievement(achievements[1]);
+              }
+              if (challenges.every(c => c.completed) && !achievements[2].unlocked) {
+                unlockAchievement(achievements[2]);
+              }
+            };
 
-              return <Ionicons name={iconName} size={size} color={color} />;
+            const unlockAchievement = (achievement: Achievement) => {
+              const updatedAchievements = achievements.map(a => 
+                a.id === achievement.id ? { ...a, unlocked: true } : a
+              );
+              setAchievements(updatedAchievements);
+              setCurrentAchievement(achievement);
+              setShowAchievement(true);
+            };
+
+            const completeChallenge = (challengeId: string) => {
+              const updatedChallenges = challenges.map(c => 
+                c.id === challengeId ? { ...c, completed: true } : c
+              );
+              setChallenges(updatedChallenges);
+              const challenge = challenges.find(c => c.id === challengeId);
+              if (challenge) {
+                setUserPoints(prev => prev + challenge.points);
+                Alert.alert('चुनौती पूरा!', `तपाईंले ${challenge.points} अंक पाउनुभयो!`);
+              }
+            };
+
+            const addBudget = () => {
+              if (!budgetName || !budgetAmount) {
+                Alert.alert('त्रुटि', 'कृपया सबै फिल्डहरू भर्नुहोस्');
+                return;
+              }
+              const newBudget: Budget = {
+                id: Date.now().toString(),
+                name: budgetName,
+                amount: parseFloat(budgetAmount),
+                spent: 0,
+                category: budgetCategory
+              };
+              const newBudgets = [...budgets, newBudget];
+              setBudgets(newBudgets);
+              setBudgetName('');
+              setBudgetAmount('');
+              setBudgetCategory('सामान्य');
+              
+              // Complete first budget challenge
+              if (budgets.length === 0) {
+                completeChallenge('1');
+              }
+              
+              checkAchievements();
+              Alert.alert('सफल', 'बजेट थपियो!');
+            };
+
+            const addExpense = () => {
+              if (!expenseDesc || !expenseAmount || !selectedBudget) {
+                Alert.alert('त्रुटि', 'कृपया सबै फिल्डहरू भर्नुहोस्');
+                return;
+              }
+              const newExpense: Expense = {
+                id: Date.now().toString(),
+                budgetId: selectedBudget,
+                description: expenseDesc,
+                amount: parseFloat(expenseAmount),
+                category: expenseCategory,
+                date: new Date().toLocaleDateString('ne-NP')
+              };
+              const newExpenses = [...expenses, newExpense];
+              
+              // Update budget spent amount
+              const newBudgets = budgets.map(budget => 
+                budget.id === selectedBudget 
+                  ? { ...budget, spent: budget.spent + parseFloat(expenseAmount) }
+                  : budget
+              );
+              
+              setExpenses(newExpenses);
+              setBudgets(newBudgets);
+              setExpenseDesc('');
+              setExpenseAmount('');
+              setExpenseCategory('खाना');
+              
+              // Increment expense count for ad display
+              const newExpenseCount = expenseCount + 1;
+              setExpenseCount(newExpenseCount);
+              
+              // Show interstitial ad every 5 expenses if not premium
+              if (!isPremium && newExpenseCount % 5 === 0) {
+                setShowInterstitialAd(true);
+              }
+              
+              checkAchievements();
+              Alert.alert('सफल', 'खर्च थपियो!');
+            };
+
+            // Welcome Screen (matches web version)
+            const renderWelcome = () => (
+              <View style={styles.welcomeContainer}>
+                <ScrollView contentContainerStyle={styles.welcomeContent}>
+                  <View style={styles.welcomeCard}>
+                    <View style={styles.appLogo}>
+                      <Text style={styles.logoIcon}>💰</Text>
+                      <Text style={styles.appTitle}>स्मार्ट बजेट ट्र्याकर</Text>
+                      <Text style={styles.appSubtitle}>तपाईंको व्यक्तिगत वित्त साथी</Text>
+                    </View>
+                    
+                    <View style={styles.nepaliMessage}>
+                      <Text style={styles.messageText}>
+                        म चाहन्छु कि तपाईंले संसारलाई राम्रोसँग बुझ्नुहोस् र सही र गलत छुट्याउन सक्नुहोस्। तपाईंमा गहिरो ज्ञान होस् र तपाईंले सधैं बुद्धिमानी निर्णयहरू लिनुहोस्।
+                      </Text>
+                      <Text style={styles.messageAuthor}>- KissonFloyd</Text>
+                    </View>
+                    
+                    <TouchableOpacity 
+                      style={styles.thankYouButton}
+                      onPress={() => setShowWelcome(false)}
+                    >
+                      <Text style={styles.thankYouText}>धन्यवाद</Text>
+                      <Text style={styles.arrow}>→</Text>
+                    </TouchableOpacity>
+                  </View>
+                </ScrollView>
+              </View>
+            );
+
+            // Dashboard Home with comprehensive features
+            const renderHome = () => (
+              <ScrollView style={styles.container}>
+                {/* Enhanced Header */}
+                <View style={styles.dashboardHeader}>
+                  <View style={styles.headerLeft}>
+                    <Text style={styles.title}>स्मार्ट बजेट ट्र्याकर</Text>
+                    <Text style={styles.subtitle}>{new Date().toLocaleDateString('ne-NP')}</Text>
+                  </View>
+                  <View style={styles.headerRight}>
+                    {isPremium && (
+                      <View style={styles.premiumBadge}>
+                        <Text style={styles.premiumText}>👑 प्रिमियम</Text>
+                      </View>
+                    )}
+                    <View style={styles.userStats}>
+                      <Text style={styles.statsText}>स्तर: {userLevel}</Text>
+                      <Text style={styles.statsText}>अंक: {userPoints}</Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Banner Ad */}
+                {!isPremium && (
+                  <View style={styles.bannerAd}>
+                    <Text style={styles.adText}>📱 प्रिमियम अपग्रेड - केवल रू ४९९/महिना</Text>
+                  </View>
+                )}
+
+                {/* Quick Stats */}
+                <View style={styles.statsGrid}>
+                  <View style={styles.statCard}>
+                    <Text style={styles.statNumber}>{budgets.length}</Text>
+                    <Text style={styles.statLabel}>बजेटहरू</Text>
+                  </View>
+                  <View style={styles.statCard}>
+                    <Text style={styles.statNumber}>{expenses.length}</Text>
+                    <Text style={styles.statLabel}>खर्चहरू</Text>
+                  </View>
+                  <View style={styles.statCard}>
+                    <Text style={styles.statNumber}>रू {expenses.reduce((sum, e) => sum + e.amount, 0).toLocaleString()}</Text>
+                    <Text style={styles.statLabel}>कुल खर्च</Text>
+                  </View>
+                </View>
+                
+                <View style={styles.content}>
+                  <Text style={styles.sectionTitle}>तपाईका बजेटहरू</Text>
+                  {budgets.length === 0 ? (
+                    <View style={styles.emptyState}>
+                      <Text style={styles.emptyIcon}>💰</Text>
+                      <Text style={styles.emptyTitle}>स्वागत छ!</Text>
+                      <Text style={styles.emptyText}>तपाईंको पहिलो बजेट सिर्जना गर्न "बजेट" ट्याबमा जानुहोस्</Text>
+                    </View>
+                  ) : (
+                    budgets.map(budget => {
+                      const percentage = (budget.spent / budget.amount) * 100;
+                      return (
+                        <View key={budget.id} style={styles.budgetCard}>
+                          <View style={styles.budgetHeader}>
+                            <Text style={styles.budgetName}>{budget.name}</Text>
+                            <Text style={styles.budgetCategory}>{budget.category}</Text>
+                          </View>
+                          <Text style={styles.budgetAmount}>रू {budget.amount.toLocaleString()}</Text>
+                          <View style={styles.progressBar}>
+                            <View style={[styles.progressFill, { width: `${Math.min(percentage, 100)}%` }]} />
+                          </View>
+                          <View style={styles.budgetFooter}>
+                            <Text style={styles.budgetSpent}>खर्च: रू {budget.spent.toLocaleString()}</Text>
+                            <Text style={styles.budgetRemaining}>बाँकी: रू {(budget.amount - budget.spent).toLocaleString()}</Text>
+                          </View>
+                        </View>
+                      );
+                    })
+                  )}
+
+                  {/* Recent Expenses */}
+                  {expenses.length > 0 && (
+                    <View style={styles.recentSection}>
+                      <Text style={styles.sectionTitle}>हालका खर्चहरू</Text>
+                      {expenses.slice(-3).reverse().map(expense => (
+                        <View key={expense.id} style={styles.expenseItem}>
+                          <View style={styles.expenseLeft}>
+                            <Text style={styles.expenseDesc}>{expense.description}</Text>
+                            <Text style={styles.expenseCategory}>{expense.category} • {expense.date}</Text>
+                          </View>
+                          <Text style={styles.expenseAmount}>रू {expense.amount.toLocaleString()}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                </View>
+              </ScrollView>
+            );
+
+            const renderBudgets = () => (
+              <ScrollView style={styles.container}>
+                <View style={styles.formContainer}>
+                  <Text style={styles.formTitle}>नयाँ बजेट थप्नुहोस्</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="बजेटको नाम"
+                    value={budgetName}
+                    onChangeText={setBudgetName}
+                  />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="रकम"
+                    value={budgetAmount}
+                    onChangeText={setBudgetAmount}
+                    keyboardType="numeric"
+                  />
+                  
+                  {/* Category Selector */}
+                  <Text style={styles.label}>श्रेणी:</Text>
+                  <View style={styles.categoryContainer}>
+                    {budgetCategories.map(category => (
+                      <TouchableOpacity
+                        key={category}
+                        style={[
+                          styles.categoryButton,
+                          budgetCategory === category && styles.selectedCategory
+                        ]}
+                        onPress={() => setBudgetCategory(category)}
+                      >
+                        <Text style={[
+                          styles.categoryText,
+                          budgetCategory === category && styles.selectedCategoryText
+                        ]}>
+                          {category}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                  
+                  <TouchableOpacity style={styles.button} onPress={addBudget}>
+                    <Text style={styles.buttonText}>बजेट थप्नुहोस्</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Existing Budgets */}
+                <View style={styles.existingBudgets}>
+                  <Text style={styles.sectionTitle}>अवस्थित बजेटहरू</Text>
+                  {budgets.map(budget => (
+                    <View key={budget.id} style={styles.budgetItem}>
+                      <View style={styles.budgetInfo}>
+                        <Text style={styles.budgetName}>{budget.name}</Text>
+                        <Text style={styles.budgetCategory}>{budget.category}</Text>
+                      </View>
+                      <View style={styles.budgetAmounts}>
+                        <Text style={styles.budgetTotal}>रू {budget.amount.toLocaleString()}</Text>
+                        <Text style={styles.budgetSpent}>खर्च: रू {budget.spent.toLocaleString()}</Text>
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              </ScrollView>
+            );
+
+            const renderExpenses = () => (
+              <ScrollView style={styles.container}>
+                <View style={styles.formContainer}>
+                  <Text style={styles.formTitle}>नयाँ खर्च थप्नुहोस्</Text>
+                  <Text style={styles.label}>बजेट छान्नुहोस्:</Text>
+                  {budgets.map(budget => (
+                    <TouchableOpacity
+                      key={budget.id}
+                      style={[styles.budgetOption, selectedBudget === budget.id && styles.selectedBudget]}
+                      onPress={() => setSelectedBudget(budget.id)}
+                    >
+                      <Text style={styles.budgetOptionText}>{budget.name}</Text>
+                    </TouchableOpacity>
+                  ))}
+                  <TextInput
+                    style={styles.input}
+                    placeholder="खर्चको विवरण"
+                    value={expenseDesc}
+                    onChangeText={setExpenseDesc}
+                  />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="रकम"
+                    value={expenseAmount}
+                    onChangeText={setExpenseAmount}
+                    keyboardType="numeric"
+                  />
+                  <TouchableOpacity style={styles.button} onPress={addExpense}>
+                    <Text style={styles.buttonText}>खर्च थप्नुहोस्</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.expensesList}>
+                  <Text style={styles.formTitle}>हालका खर्चहरू</Text>
+                  {expenses.slice(-5).reverse().map(expense => (
+                    <View key={expense.id} style={styles.expenseCard}>
+                      <Text style={styles.expenseDesc}>{expense.description}</Text>
+                      <Text style={styles.expenseAmount}>रू {expense.amount.toLocaleString()}</Text>
+                      <Text style={styles.expenseDate}>{expense.date}</Text>
+                    </View>
+                  ))}
+                </View>
+              </ScrollView>
+            );
+
+            // Analytics Screen (matching web version)
+            const renderAnalytics = () => (
+              <ScrollView style={styles.container}>
+                <Text style={styles.pageTitle}>📊 खर्च विश्लेषण</Text>
+                
+                {/* Summary Cards */}
+                <View style={styles.analyticsGrid}>
+                  <View style={styles.analyticsCard}>
+                    <Text style={styles.analyticsNumber}>रू {expenses.reduce((sum, e) => sum + e.amount, 0).toLocaleString()}</Text>
+                    <Text style={styles.analyticsLabel}>कुल खर्च</Text>
+                  </View>
+                  <View style={styles.analyticsCard}>
+                    <Text style={styles.analyticsNumber}>{expenses.length}</Text>
+                    <Text style={styles.analyticsLabel}>कुल लेनदेन</Text>
+                  </View>
+                  <View style={styles.analyticsCard}>
+                    <Text style={styles.analyticsNumber}>रू {expenses.length > 0 ? Math.round(expenses.reduce((sum, e) => sum + e.amount, 0) / expenses.length).toLocaleString() : 0}</Text>
+                    <Text style={styles.analyticsLabel}>औसत खर्च</Text>
+                  </View>
+                </View>
+
+                {/* Category Breakdown */}
+                <View style={styles.categoryBreakdown}>
+                  <Text style={styles.sectionTitle}>श्रेणी अनुसार खर्च</Text>
+                  {categories.map(category => {
+                    const categoryExpenses = expenses.filter(e => e.category === category);
+                    const categoryTotal = categoryExpenses.reduce((sum, e) => sum + e.amount, 0);
+                    const percentage = expenses.length > 0 ? (categoryTotal / expenses.reduce((sum, e) => sum + e.amount, 0)) * 100 : 0;
+                    
+                    if (categoryTotal === 0) return null;
+                    
+                    return (
+                      <View key={category} style={styles.categoryItem}>
+                        <View style={styles.categoryHeader}>
+                          <Text style={styles.categoryName}>{category}</Text>
+                          <Text style={styles.categoryAmount}>रू {categoryTotal.toLocaleString()}</Text>
+                        </View>
+                        <View style={styles.categoryBar}>
+                          <View style={[styles.categoryProgress, { width: `${percentage}%` }]} />
+                        </View>
+                        <Text style={styles.categoryPercentage}>{percentage.toFixed(1)}%</Text>
+                      </View>
+                    );
+                  })}
+                </View>
+
+                {/* Insights */}
+                <View style={styles.insights}>
+                  <Text style={styles.sectionTitle}>💡 अन्तर्दृष्टि</Text>
+                  <View style={styles.insightCard}>
+                    <Text style={styles.insightText}>
+                      तपाईंको सबैभन्दा धेरै खर्च {expenses.length > 0 
+                        ? categories.reduce((max, cat) => {
+                            const catTotal = expenses.filter(e => e.category === cat).reduce((sum, e) => sum + e.amount, 0);
+                            const maxTotal = expenses.filter(e => e.category === max).reduce((sum, e) => sum + e.amount, 0);
+                            return catTotal > maxTotal ? cat : max;
+                          })
+                        : 'कुनै'} मा छ।
+                    </Text>
+                  </View>
+                </View>
+              </ScrollView>
+            );
+
+            // Budget Challenges (matching web version)
+            const renderChallenges = () => (
+              <ScrollView style={styles.container}>
+                <Text style={styles.pageTitle}>🏆 बजेट चुनौतीहरू</Text>
+                
+                {/* User Progress */}
+                <View style={styles.userProgress}>
+                  <View style={styles.progressHeader}>
+                    <Text style={styles.userLevel}>स्तर {userLevel}</Text>
+                    <Text style={styles.userPoints}>{userPoints} अंक</Text>
+                  </View>
+                  <View style={styles.levelProgress}>
+                    <View style={[styles.levelBar, { width: `${(userPoints % 500) / 5}%` }]} />
+                  </View>
+                  <Text style={styles.nextLevel}>अर्को स्तरको लागि {500 - (userPoints % 500)} अंक चाहिन्छ</Text>
+                </View>
+
+                {/* Challenges List */}
+                <View style={styles.challengesList}>
+                  <Text style={styles.sectionTitle}>सक्रिय चुनौतीहरू</Text>
+                  {challenges.map(challenge => (
+                    <View key={challenge.id} style={[
+                      styles.challengeCard,
+                      challenge.completed && styles.completedChallenge
+                    ]}>
+                      <View style={styles.challengeHeader}>
+                        <Text style={styles.challengeTitle}>{challenge.title}</Text>
+                        <Text style={styles.challengePoints}>{challenge.points} अंक</Text>
+                      </View>
+                      <Text style={styles.challengeDesc}>{challenge.description}</Text>
+                      {challenge.completed && (
+                        <View style={styles.completedBadge}>
+                          <Text style={styles.completedText}>✅ पूर्ण</Text>
+                        </View>
+                      )}
+                    </View>
+                  ))}
+                </View>
+              </ScrollView>
+            );
+
+            // Financial Tips (matching web version)
+            const renderTips = () => (
+              <ScrollView style={styles.container}>
+                <Text style={styles.pageTitle}>💡 वित्तीय सुझावहरू</Text>
+                
+                <View style={styles.tipsList}>
+                  <View style={styles.tipCard}>
+                    <Text style={styles.tipTitle}>🎯 बजेट बनाउनु</Text>
+                    <Text style={styles.tipContent}>
+                      हरेक महिना आफ्नो आम्दानीको आधारमा बजेट बनाउनुहोस्। आवश्यक खर्चहरूलाई प्राथमिकता दिनुहोस्।
+                    </Text>
+                  </View>
+                  
+                  <View style={styles.tipCard}>
+                    <Text style={styles.tipTitle}>💰 बचत गर्नु</Text>
+                    <Text style={styles.tipContent}>
+                      आफ्नो आम्दानीको कम्तिमा २०% बचत गर्ने बानी बसाल्नुहोस्। सानो रकमदेखि सुरु गर्नुहोस्।
+                    </Text>
+                  </View>
+                  
+                  <View style={styles.tipCard}>
+                    <Text style={styles.tipTitle}>📊 खर्च ट्र्याक गर्नु</Text>
+                    <Text style={styles.tipContent}>
+                      दैनिक खर्चहरूको हिसाब राख्नुहोस्। यसले तपाईंलाई अनावश्यक खर्च कम गर्न मद्दत गर्छ।
+                    </Text>
+                  </View>
+                  
+                  <View style={styles.tipCard}>
+                    <Text style={styles.tipTitle}>🎯 लक्ष्य निर्धारण</Text>
+                    <Text style={styles.tipContent}>
+                      छोटोकालीन र दीर्घकालीन वित्तीय लक्ष्यहरू निर्धारण गर्नुहोस्। नियमित समीक्षा गर्नुहोस्।
+                    </Text>
+                  </View>
+                </View>
+              </ScrollView>
+            );
+
+            const renderCurrentScreen = () => {
+              if (showWelcome) {
+                return renderWelcome();
+              }
+              
+              switch (currentScreen) {
+                case 'budgets': return renderBudgets();
+                case 'expenses': return renderExpenses();
+                case 'analytics': return renderAnalytics();
+                case 'challenges': return renderChallenges();
+                case 'tips': return renderTips();
+                default: return renderHome();
+              }
+            };
+
+            return (
+              <>
+                <StatusBar barStyle="light-content" backgroundColor="#FF6B35" />
+                {renderCurrentScreen()}
+                
+                {/* Enhanced Bottom Navigation with all features */}
+                <View style={styles.bottomNav}>
+                  <TouchableOpacity 
+                    style={[styles.navButton, currentScreen === 'dashboard' && styles.activeNav]}
+                    onPress={() => setCurrentScreen('dashboard')}
+                  >
+                    <Text style={styles.navIcon}>🏠</Text>
+                    <Text style={styles.navText}>गृह</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={[styles.navButton, currentScreen === 'budgets' && styles.activeNav]}
+                    onPress={() => setCurrentScreen('budgets')}
+                  >
+                    <Text style={styles.navIcon}>💰</Text>
+                    <Text style={styles.navText}>बजेट</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={[styles.navButton, currentScreen === 'expenses' && styles.activeNav]}
+                    onPress={() => setCurrentScreen('expenses')}
+                  >
+                    <Text style={styles.navIcon}>📋</Text>
+                    <Text style={styles.navText}>खर्च</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={[styles.navButton, currentScreen === 'analytics' && styles.activeNav]}
+                    onPress={() => setCurrentScreen('analytics')}
+                  >
+                    <Text style={styles.navIcon}>📊</Text>
+                    <Text style={styles.navText}>विश्लेषण</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={[styles.navButton, currentScreen === 'challenges' && styles.activeNav]}
+                    onPress={() => setCurrentScreen('challenges')}
+                  >
+                    <Text style={styles.navIcon}>🏆</Text>
+                    <Text style={styles.navText}>चुनौती</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Achievement Notification Modal */}
+                <Modal visible={showAchievement} transparent animationType="slide">
+                  <View style={styles.modalOverlay}>
+                    <View style={styles.achievementModal}>
+                      <Text style={styles.achievementTitle}>🎉 बधाई छ!</Text>
+                      <Text style={styles.achievementIcon}>{currentAchievement?.icon}</Text>
+                      <Text style={styles.achievementName}>{currentAchievement?.title}</Text>
+                      <Text style={styles.achievementDesc}>{currentAchievement?.description}</Text>
+                      <TouchableOpacity 
+                        style={styles.achievementButton}
+                        onPress={() => setShowAchievement(false)}
+                      >
+                        <Text style={styles.achievementButtonText}>धन्यवाद</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </Modal>
+
+                {/* Interstitial Ad Modal */}
+                <Modal visible={showInterstitialAd} transparent animationType="fade">
+                  <View style={styles.modalOverlay}>
+                    <View style={styles.adModal}>
+                      <TouchableOpacity 
+                        style={styles.adClose}
+                        onPress={() => setShowInterstitialAd(false)}
+                      >
+                        <Text style={styles.adCloseText}>✕</Text>
+                      </TouchableOpacity>
+                      <Text style={styles.adTitle}>प्रिमियम अपग्रेड गर्नुहोस्</Text>
+                      <Text style={styles.adDescription}>
+                        विज्ञापन हटाउनुहोस् र प्रिमियम सुविधाहरूको आनन्द लिनुहोस्
+                      </Text>
+                      <Text style={styles.adPrice}>केवल रू ४९९/महिना</Text>
+                      <TouchableOpacity 
+                        style={styles.adUpgradeButton}
+                        onPress={() => {
+                          setIsPremium(true);
+                          setShowInterstitialAd(false);
+                          Alert.alert('प्रिमियम सक्रिय', 'तपाईं अब प्रिमियम सदस्य हुनुहुन्छ!');
+                        }}
+                      >
+                        <Text style={styles.adUpgradeText}>अहिले अपग्रेड गर्नुहोस्</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </Modal>
+              </>
+            );
+          };
+
+          const styles = StyleSheet.create({
+            container: {
+              flex: 1,
+              backgroundColor: '#F8F9FA',
             },
-            tabBarActiveTintColor: '#FF6B35',
-            tabBarInactiveTintColor: 'gray',
-            tabBarStyle: {
+            header: {
+              backgroundColor: '#FF6B35',
+              padding: 30,
+              alignItems: 'center',
+            },
+            title: {
+              fontSize: 28,
+              fontWeight: 'bold',
+              color: '#FFFFFF',
+              marginBottom: 5,
+            },
+            subtitle: {
+              fontSize: 16,
+              color: '#FFE4D6',
+            },
+            content: {
+              padding: 20,
+              paddingBottom: 80,
+            },
+            sectionTitle: {
+              fontSize: 24,
+              fontWeight: 'bold',
+              color: '#2C3E50',
+              marginBottom: 15,
+            },
+            budgetCard: {
+              backgroundColor: '#FFFFFF',
+              padding: 20,
+              marginBottom: 15,
+              borderRadius: 12,
+              elevation: 2,
+            },
+            budgetName: {
+              fontSize: 18,
+              fontWeight: 'bold',
+              color: '#2C3E50',
+              marginBottom: 5,
+            },
+            budgetAmount: {
+              fontSize: 16,
+              color: '#27AE60',
+              fontWeight: 'bold',
+            },
+            budgetSpent: {
+              fontSize: 14,
+              color: '#E74C3C',
+            },
+            budgetRemaining: {
+              fontSize: 14,
+              color: '#3498DB',
+            },
+            formContainer: {
+              padding: 20,
+            },
+            formTitle: {
+              fontSize: 20,
+              fontWeight: 'bold',
+              color: '#2C3E50',
+              marginBottom: 20,
+            },
+            input: {
+              borderWidth: 1,
+              borderColor: '#BDC3C7',
+              borderRadius: 8,
+              padding: 12,
+              marginBottom: 15,
+              fontSize: 16,
+            },
+            button: {
+              backgroundColor: '#FF6B35',
+              padding: 15,
+              borderRadius: 8,
+              alignItems: 'center',
+            },
+            buttonText: {
+              color: '#FFFFFF',
+              fontSize: 16,
+              fontWeight: 'bold',
+            },
+            label: {
+              fontSize: 16,
+              fontWeight: 'bold',
+              color: '#2C3E50',
+              marginBottom: 10,
+            },
+            budgetOption: {
+              padding: 12,
+              borderWidth: 1,
+              borderColor: '#BDC3C7',
+              borderRadius: 8,
+              marginBottom: 10,
+            },
+            selectedBudget: {
+              backgroundColor: '#FF6B35',
+            },
+            budgetOptionText: {
+              fontSize: 16,
+              color: '#2C3E50',
+            },
+            expensesList: {
+              padding: 20,
+              paddingTop: 0,
+            },
+            expenseCard: {
+              backgroundColor: '#FFFFFF',
+              padding: 15,
+              marginBottom: 10,
+              borderRadius: 8,
+              elevation: 1,
+            },
+            expenseDesc: {
+              fontSize: 16,
+              fontWeight: 'bold',
+              color: '#2C3E50',
+            },
+            expenseAmount: {
+              fontSize: 14,
+              color: '#E74C3C',
+            },
+            expenseDate: {
+              fontSize: 12,
+              color: '#7F8C8D',
+            },
+            emptyText: {
+              textAlign: 'center',
+              color: '#7F8C8D',
+              fontSize: 16,
+              fontStyle: 'italic',
+            },
+            bottomNav: {
+              flexDirection: 'row',
               backgroundColor: '#FFFFFF',
               borderTopWidth: 1,
               borderTopColor: '#E0E0E0',
-              height: 60,
-              paddingBottom: 8,
-              paddingTop: 8,
+              position: 'absolute',
+              bottom: 0,
+              left: 0,
+              right: 0,
             },
-            headerStyle: {
+            navButton: {
+              flex: 1,
+              padding: 15,
+              alignItems: 'center',
+            },
+            activeNav: {
               backgroundColor: '#FF6B35',
             },
-            headerTintColor: '#FFFFFF',
-            headerTitleStyle: {
+            navText: {
+              fontSize: 12,
               fontWeight: 'bold',
-              fontSize: 18,
+              color: '#2C3E50',
+              marginTop: 4,
             },
-          })}
-        >
-          <Tab.Screen 
-            name="स्वागत" 
-            component={WelcomeScreen}
-            options={{ title: 'स्वागत' }}
-          />
-          <Tab.Screen 
-            name="बजेट" 
-            component={BudgetScreen}
-            options={{ title: 'मेरे बजेट' }}
-          />
-          <Tab.Screen 
-            name="खर्च" 
-            component={ExpenseScreen}
-            options={{ title: 'मेरे खर्च' }}
-          />
-          <Tab.Screen 
-            name="विश्लेषण" 
-            component={AnalyticsScreen}
-            options={{ title: 'विश्लेषण' }}
-          />
-        </Tab.Navigator>
-      </NavigationContainer>
-    </BudgetProvider>
-  );
-}
+            navIcon: {
+              fontSize: 16,
+              marginBottom: 2,
+            },
+            
+            // Welcome Screen Styles
+            welcomeContainer: {
+              flex: 1,
+              backgroundColor: 'linear-gradient(135deg, #FFE4D6 0%, #E6D6FF 50%, #FFCCCB 100%)',
+              justifyContent: 'center',
+              padding: 20,
+            },
+            welcomeContent: {
+              flexGrow: 1,
+              justifyContent: 'center',
+            },
+            welcomeCard: {
+              backgroundColor: '#FFFFFF',
+              borderRadius: 20,
+              padding: 40,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 8 },
+              shadowOpacity: 0.3,
+              shadowRadius: 15,
+              elevation: 15,
+            },
+            appLogo: {
+              alignItems: 'center',
+              marginBottom: 30,
+            },
+            logoIcon: {
+              fontSize: 48,
+              marginBottom: 16,
+            },
+            appTitle: {
+              fontSize: 32,
+              fontWeight: 'bold',
+              color: '#2C3E50',
+              marginBottom: 8,
+              textAlign: 'center',
+            },
+            appSubtitle: {
+              fontSize: 16,
+              color: '#7F8C8D',
+              textAlign: 'center',
+            },
+            nepaliMessage: {
+              backgroundColor: '#F8F9FA',
+              padding: 24,
+              borderRadius: 12,
+              borderLeftWidth: 4,
+              borderLeftColor: '#FF6B35',
+              marginBottom: 30,
+            },
+            messageText: {
+              fontSize: 18,
+              lineHeight: 28,
+              color: '#2C3E50',
+              fontWeight: '500',
+              textAlign: 'left',
+              marginBottom: 16,
+            },
+            messageAuthor: {
+              fontSize: 14,
+              color: '#7F8C8D',
+              fontWeight: '600',
+              textAlign: 'right',
+            },
+            thankYouButton: {
+              flexDirection: 'row',
+              backgroundColor: '#FF6B35',
+              paddingVertical: 16,
+              paddingHorizontal: 32,
+              borderRadius: 12,
+              alignItems: 'center',
+              justifyContent: 'center',
+              shadowColor: '#FF6B35',
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.3,
+              shadowRadius: 8,
+              elevation: 8,
+            },
+            thankYouText: {
+              color: '#FFFFFF',
+              fontSize: 18,
+              fontWeight: 'bold',
+              marginRight: 12,
+            },
+            arrow: {
+              color: '#FFFFFF',
+              fontSize: 18,
+              fontWeight: 'bold',
+            },
+
+            // Enhanced Dashboard Styles
+            dashboardHeader: {
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              backgroundColor: '#FF6B35',
+              padding: 20,
+              paddingTop: 40,
+            },
+            headerLeft: {
+              flex: 1,
+            },
+            headerRight: {
+              alignItems: 'flex-end',
+            },
+            premiumBadge: {
+              backgroundColor: '#FFD700',
+              paddingHorizontal: 8,
+              paddingVertical: 4,
+              borderRadius: 12,
+              marginBottom: 8,
+            },
+            premiumText: {
+              fontSize: 12,
+              fontWeight: 'bold',
+              color: '#2C3E50',
+            },
+            userStats: {
+              alignItems: 'flex-end',
+            },
+            statsText: {
+              fontSize: 12,
+              color: '#FFE4D6',
+              marginBottom: 2,
+            },
+            bannerAd: {
+              backgroundColor: '#3498DB',
+              padding: 12,
+              margin: 10,
+              borderRadius: 8,
+              alignItems: 'center',
+            },
+            adText: {
+              color: '#FFFFFF',
+              fontSize: 14,
+              fontWeight: 'bold',
+            },
+            statsGrid: {
+              flexDirection: 'row',
+              padding: 20,
+              paddingBottom: 10,
+            },
+            statCard: {
+              flex: 1,
+              backgroundColor: '#FFFFFF',
+              padding: 16,
+              marginHorizontal: 5,
+              borderRadius: 12,
+              alignItems: 'center',
+              elevation: 2,
+            },
+            statNumber: {
+              fontSize: 18,
+              fontWeight: 'bold',
+              color: '#FF6B35',
+              marginBottom: 4,
+            },
+            statLabel: {
+              fontSize: 12,
+              color: '#7F8C8D',
+            },
+            emptyState: {
+              alignItems: 'center',
+              padding: 40,
+              backgroundColor: '#FFFFFF',
+              borderRadius: 12,
+              marginVertical: 20,
+            },
+            emptyIcon: {
+              fontSize: 48,
+              marginBottom: 16,
+            },
+            emptyTitle: {
+              fontSize: 18,
+              fontWeight: 'bold',
+              color: '#2C3E50',
+              marginBottom: 8,
+            },
+            emptyText: {
+              fontSize: 14,
+              color: '#7F8C8D',
+              textAlign: 'center',
+              lineHeight: 20,
+            },
+            budgetHeader: {
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: 8,
+            },
+            budgetCategory: {
+              fontSize: 12,
+              color: '#FF6B35',
+              backgroundColor: '#FFE4D6',
+              paddingHorizontal: 8,
+              paddingVertical: 2,
+              borderRadius: 10,
+            },
+            progressBar: {
+              height: 8,
+              backgroundColor: '#E0E0E0',
+              borderRadius: 4,
+              marginVertical: 8,
+            },
+            progressFill: {
+              height: '100%',
+              backgroundColor: '#FF6B35',
+              borderRadius: 4,
+            },
+            budgetFooter: {
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+            },
+            recentSection: {
+              marginTop: 20,
+            },
+            expenseItem: {
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              backgroundColor: '#FFFFFF',
+              padding: 16,
+              marginBottom: 8,
+              borderRadius: 8,
+              elevation: 1,
+            },
+            expenseLeft: {
+              flex: 1,
+            },
+            expenseCategory: {
+              fontSize: 12,
+              color: '#7F8C8D',
+              marginTop: 4,
+            },
+
+            // Enhanced Form Styles
+            categoryContainer: {
+              flexDirection: 'row',
+              flexWrap: 'wrap',
+              marginBottom: 15,
+            },
+            categoryButton: {
+              paddingHorizontal: 12,
+              paddingVertical: 8,
+              borderWidth: 1,
+              borderColor: '#BDC3C7',
+              borderRadius: 20,
+              margin: 4,
+            },
+            selectedCategory: {
+              backgroundColor: '#FF6B35',
+              borderColor: '#FF6B35',
+            },
+            categoryText: {
+              fontSize: 14,
+              color: '#2C3E50',
+            },
+            selectedCategoryText: {
+              color: '#FFFFFF',
+            },
+            existingBudgets: {
+              padding: 20,
+              paddingTop: 0,
+            },
+            budgetItem: {
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              backgroundColor: '#FFFFFF',
+              padding: 16,
+              marginBottom: 12,
+              borderRadius: 8,
+              elevation: 2,
+            },
+            budgetInfo: {
+              flex: 1,
+            },
+            budgetAmounts: {
+              alignItems: 'flex-end',
+            },
+            budgetTotal: {
+              fontSize: 16,
+              fontWeight: 'bold',
+              color: '#27AE60',
+            },
+            budgetSelectorContainer: {
+              marginBottom: 15,
+            },
+            budgetSelector: {
+              padding: 12,
+              borderWidth: 1,
+              borderColor: '#BDC3C7',
+              borderRadius: 8,
+              marginBottom: 8,
+            },
+            budgetSelectorText: {
+              fontSize: 16,
+              color: '#2C3E50',
+              fontWeight: 'bold',
+            },
+            selectedBudgetText: {
+              color: '#FFFFFF',
+            },
+            budgetBalance: {
+              fontSize: 12,
+              color: '#7F8C8D',
+              marginTop: 4,
+            },
+            expenseList: {
+              padding: 20,
+              paddingTop: 0,
+            },
+            expenseHeader: {
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: 8,
+            },
+            expenseFooter: {
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+            },
+
+            // Analytics Styles
+            pageTitle: {
+              fontSize: 24,
+              fontWeight: 'bold',
+              color: '#2C3E50',
+              textAlign: 'center',
+              padding: 20,
+            },
+            analyticsGrid: {
+              flexDirection: 'row',
+              padding: 20,
+              paddingBottom: 10,
+            },
+            analyticsCard: {
+              flex: 1,
+              backgroundColor: '#FFFFFF',
+              padding: 20,
+              marginHorizontal: 5,
+              borderRadius: 12,
+              alignItems: 'center',
+              elevation: 3,
+            },
+            analyticsNumber: {
+              fontSize: 20,
+              fontWeight: 'bold',
+              color: '#FF6B35',
+              marginBottom: 8,
+            },
+            analyticsLabel: {
+              fontSize: 12,
+              color: '#7F8C8D',
+              textAlign: 'center',
+            },
+            categoryBreakdown: {
+              padding: 20,
+            },
+            categoryItem: {
+              backgroundColor: '#FFFFFF',
+              padding: 16,
+              marginBottom: 12,
+              borderRadius: 8,
+              elevation: 2,
+            },
+            categoryHeader: {
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              marginBottom: 8,
+            },
+            categoryName: {
+              fontSize: 16,
+              fontWeight: 'bold',
+              color: '#2C3E50',
+            },
+            categoryAmount: {
+              fontSize: 16,
+              fontWeight: 'bold',
+              color: '#FF6B35',
+            },
+            categoryBar: {
+              height: 8,
+              backgroundColor: '#E0E0E0',
+              borderRadius: 4,
+              marginBottom: 4,
+            },
+            categoryProgress: {
+              height: '100%',
+              backgroundColor: '#FF6B35',
+              borderRadius: 4,
+            },
+            categoryPercentage: {
+              fontSize: 12,
+              color: '#7F8C8D',
+              textAlign: 'right',
+            },
+            insights: {
+              padding: 20,
+              paddingTop: 0,
+            },
+            insightCard: {
+              backgroundColor: '#E8F5E8',
+              padding: 16,
+              borderRadius: 8,
+              borderLeftWidth: 4,
+              borderLeftColor: '#27AE60',
+            },
+            insightText: {
+              fontSize: 16,
+              color: '#2C3E50',
+              lineHeight: 24,
+            },
+
+            // Challenges Styles
+            userProgress: {
+              backgroundColor: '#FFFFFF',
+              margin: 20,
+              padding: 20,
+              borderRadius: 12,
+              elevation: 3,
+            },
+            progressHeader: {
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: 16,
+            },
+            userLevel: {
+              fontSize: 20,
+              fontWeight: 'bold',
+              color: '#FF6B35',
+            },
+            userPoints: {
+              fontSize: 16,
+              fontWeight: 'bold',
+              color: '#27AE60',
+            },
+            levelProgress: {
+              height: 12,
+              backgroundColor: '#E0E0E0',
+              borderRadius: 6,
+              marginBottom: 8,
+            },
+            levelBar: {
+              height: '100%',
+              backgroundColor: '#FF6B35',
+              borderRadius: 6,
+            },
+            nextLevel: {
+              fontSize: 12,
+              color: '#7F8C8D',
+              textAlign: 'center',
+            },
+            challengesList: {
+              padding: 20,
+              paddingTop: 0,
+            },
+            challengeCard: {
+              backgroundColor: '#FFFFFF',
+              padding: 20,
+              marginBottom: 16,
+              borderRadius: 12,
+              elevation: 2,
+            },
+            completedChallenge: {
+              backgroundColor: '#E8F5E8',
+              borderColor: '#27AE60',
+              borderWidth: 2,
+            },
+            challengeHeader: {
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: 8,
+            },
+            challengeTitle: {
+              fontSize: 18,
+              fontWeight: 'bold',
+              color: '#2C3E50',
+              flex: 1,
+            },
+            challengePoints: {
+              fontSize: 14,
+              fontWeight: 'bold',
+              color: '#FF6B35',
+            },
+            challengeDesc: {
+              fontSize: 14,
+              color: '#7F8C8D',
+              lineHeight: 20,
+              marginBottom: 8,
+            },
+            completedBadge: {
+              alignSelf: 'flex-start',
+              backgroundColor: '#27AE60',
+              paddingHorizontal: 12,
+              paddingVertical: 4,
+              borderRadius: 12,
+            },
+            completedText: {
+              color: '#FFFFFF',
+              fontSize: 12,
+              fontWeight: 'bold',
+            },
+
+            // Tips Styles
+            tipsList: {
+              padding: 20,
+            },
+            tipCard: {
+              backgroundColor: '#FFFFFF',
+              padding: 20,
+              marginBottom: 16,
+              borderRadius: 12,
+              elevation: 2,
+              borderLeftWidth: 4,
+              borderLeftColor: '#FF6B35',
+            },
+            tipTitle: {
+              fontSize: 18,
+              fontWeight: 'bold',
+              color: '#2C3E50',
+              marginBottom: 12,
+            },
+            tipContent: {
+              fontSize: 14,
+              color: '#7F8C8D',
+              lineHeight: 22,
+            },
+
+            // Modal Styles
+            modalOverlay: {
+              flex: 1,
+              backgroundColor: 'rgba(0, 0, 0, 0.5)',
+              justifyContent: 'center',
+              alignItems: 'center',
+              padding: 20,
+            },
+            achievementModal: {
+              backgroundColor: '#FFFFFF',
+              padding: 30,
+              borderRadius: 20,
+              alignItems: 'center',
+              maxWidth: 300,
+              width: '100%',
+            },
+            achievementTitle: {
+              fontSize: 24,
+              fontWeight: 'bold',
+              color: '#FF6B35',
+              marginBottom: 16,
+            },
+            achievementIcon: {
+              fontSize: 48,
+              marginBottom: 16,
+            },
+            achievementName: {
+              fontSize: 20,
+              fontWeight: 'bold',
+              color: '#2C3E50',
+              marginBottom: 8,
+              textAlign: 'center',
+            },
+            achievementDesc: {
+              fontSize: 14,
+              color: '#7F8C8D',
+              textAlign: 'center',
+              marginBottom: 20,
+              lineHeight: 20,
+            },
+            achievementButton: {
+              backgroundColor: '#FF6B35',
+              paddingHorizontal: 24,
+              paddingVertical: 12,
+              borderRadius: 8,
+            },
+            achievementButtonText: {
+              color: '#FFFFFF',
+              fontSize: 16,
+              fontWeight: 'bold',
+            },
+            adModal: {
+              backgroundColor: '#FFFFFF',
+              padding: 30,
+              borderRadius: 20,
+              alignItems: 'center',
+              maxWidth: 320,
+              width: '100%',
+            },
+            adClose: {
+              position: 'absolute',
+              top: 15,
+              right: 15,
+              width: 30,
+              height: 30,
+              borderRadius: 15,
+              backgroundColor: '#E0E0E0',
+              alignItems: 'center',
+              justifyContent: 'center',
+            },
+            adCloseText: {
+              fontSize: 16,
+              color: '#2C3E50',
+            },
+            adTitle: {
+              fontSize: 22,
+              fontWeight: 'bold',
+              color: '#2C3E50',
+              marginBottom: 16,
+              marginTop: 20,
+              textAlign: 'center',
+            },
+            adDescription: {
+              fontSize: 14,
+              color: '#7F8C8D',
+              textAlign: 'center',
+              marginBottom: 16,
+              lineHeight: 20,
+            },
+            adPrice: {
+              fontSize: 18,
+              fontWeight: 'bold',
+              color: '#FF6B35',
+              marginBottom: 20,
+            },
+            adUpgradeButton: {
+              backgroundColor: '#FF6B35',
+              paddingHorizontal: 24,
+              paddingVertical: 16,
+              borderRadius: 8,
+              width: '100%',
+            },
+            adUpgradeText: {
+              color: '#FFFFFF',
+              fontSize: 16,
+              fontWeight: 'bold',
+              textAlign: 'center',
+            },
+          });
+
+          export default App;
