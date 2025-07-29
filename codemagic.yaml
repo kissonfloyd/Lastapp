@@ -1,6 +1,6 @@
 workflows:
-  android-build:
-    name: Smart Budget Tracker - Android APK
+  web-to-mobile-apk:
+    name: Smart Budget Tracker - Web to Mobile APK (Exact Visual Match)
     max_build_duration: 60
     instance_type: mac_mini_m1
     environment:
@@ -19,458 +19,79 @@ workflows:
           include: true
           source: true
     scripts:
-      - name: Create basic React Native project
+      - name: Install dependencies
         script: |
-          npx @react-native-community/cli@latest init SmartBudgetTracker
-          cd SmartBudgetTracker
+          npm install
           
-      - name: Create Smart Budget Tracker app (no external dependencies)
+      - name: Install Capacitor
         script: |
-          cd SmartBudgetTracker
+          npm install @capacitor/core @capacitor/cli @capacitor/android
           
-          # Create App.tsx with simple state management (no external dependencies)
-          cat > App.tsx << 'EOF'
-          import React, { useState } from 'react';
-          import { View, Text, StyleSheet, ScrollView, StatusBar, TouchableOpacity, TextInput, Alert } from 'react-native';
-
-          interface Budget {
-            id: string;
-            name: string;
-            amount: number;
-            spent: number;
-          }
-
-          interface Expense {
-            id: string;
-            budgetId: string;
-            description: string;
-            amount: number;
-            category: string;
-            date: string;
-          }
-
-          const App = () => {
-            const [currentScreen, setCurrentScreen] = useState('home');
-            const [budgets, setBudgets] = useState<Budget[]>([]);
-            const [expenses, setExpenses] = useState<Expense[]>([]);
-            const [budgetName, setBudgetName] = useState('');
-            const [budgetAmount, setBudgetAmount] = useState('');
-            const [expenseDesc, setExpenseDesc] = useState('');
-            const [expenseAmount, setExpenseAmount] = useState('');
-            const [selectedBudget, setSelectedBudget] = useState('');
-
-            // Simple state management without AsyncStorage for testing
-
-            const addBudget = () => {
-              if (!budgetName || !budgetAmount) {
-                Alert.alert('त्रुटि', 'कृपया सबै फिल्डहरू भर्नुहोस्');
-                return;
-              }
-              const newBudget: Budget = {
-                id: Date.now().toString(),
-                name: budgetName,
-                amount: parseFloat(budgetAmount),
-                spent: 0
-              };
-              const newBudgets = [...budgets, newBudget];
-              setBudgets(newBudgets);
-              setBudgetName('');
-              setBudgetAmount('');
-              Alert.alert('सफल', 'बजेट थपियो!');
-            };
-
-            const addExpense = () => {
-              if (!expenseDesc || !expenseAmount || !selectedBudget) {
-                Alert.alert('त्रुटि', 'कृपया सबै फिल्डहरू भर्नुहोस्');
-                return;
-              }
-              const newExpense: Expense = {
-                id: Date.now().toString(),
-                budgetId: selectedBudget,
-                description: expenseDesc,
-                amount: parseFloat(expenseAmount),
-                category: 'सामान्य',
-                date: new Date().toLocaleDateString('ne-NP')
-              };
-              const newExpenses = [...expenses, newExpense];
-              
-              // Update budget spent amount
-              const newBudgets = budgets.map(budget => 
-                budget.id === selectedBudget 
-                  ? { ...budget, spent: budget.spent + parseFloat(expenseAmount) }
-                  : budget
-              );
-              
-              setExpenses(newExpenses);
-              setBudgets(newBudgets);
-              setExpenseDesc('');
-              setExpenseAmount('');
-              Alert.alert('सफल', 'खर्च थपियो!');
-            };
-
-            const renderHome = () => (
-              <ScrollView style={styles.container}>
-                <View style={styles.header}>
-                  <Text style={styles.title}>स्मार्ट बजेट ट्र्याकर</Text>
-                  <Text style={styles.subtitle}>Smart Budget Tracker</Text>
-                </View>
-                
-                <View style={styles.content}>
-                  <Text style={styles.sectionTitle}>तपाईका बजेटहरू</Text>
-                  {budgets.length === 0 ? (
-                    <View style={styles.welcomeCard}>
-                      <Text style={styles.welcomeTitle}>स्वागत छ!</Text>
-                      <Text style={styles.welcomeText}>तपाईंको पहिलो बजेट सिर्जना गर्न "बजेट" ट्याबमा जानुहोस्</Text>
-                    </View>
-                  ) : (
-                    budgets.map(budget => (
-                      <View key={budget.id} style={styles.budgetCard}>
-                        <Text style={styles.budgetName}>{budget.name}</Text>
-                        <Text style={styles.budgetAmount}>रू {budget.amount.toLocaleString()}</Text>
-                        <Text style={styles.budgetSpent}>खर्च: रू {budget.spent.toLocaleString()}</Text>
-                        <Text style={styles.budgetRemaining}>बाँकी: रू {(budget.amount - budget.spent).toLocaleString()}</Text>
-                      </View>
-                    ))
-                  )}
-                </View>
-              </ScrollView>
-            );
-
-            const renderBudgets = () => (
-              <ScrollView style={styles.container}>
-                <View style={styles.formContainer}>
-                  <Text style={styles.formTitle}>नयाँ बजेट थप्नुहोस्</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="बजेटको नाम (जस्तै: खाना)"
-                    value={budgetName}
-                    onChangeText={setBudgetName}
-                  />
-                  <TextInput
-                    style={styles.input}
-                    placeholder="रकम (जस्तै: 50000)"
-                    value={budgetAmount}
-                    onChangeText={setBudgetAmount}
-                    keyboardType="numeric"
-                  />
-                  <TouchableOpacity style={styles.button} onPress={addBudget}>
-                    <Text style={styles.buttonText}>बजेट थप्नुहोस्</Text>
-                  </TouchableOpacity>
-                </View>
-              </ScrollView>
-            );
-
-            const renderExpenses = () => (
-              <ScrollView style={styles.container}>
-                <View style={styles.formContainer}>
-                  <Text style={styles.formTitle}>नयाँ खर्च थप्नुहोस्</Text>
-                  <Text style={styles.label}>बजेट छान्नुहोस्:</Text>
-                  {budgets.length === 0 ? (
-                    <Text style={styles.emptyText}>पहिले बजेट थप्नुहोस्!</Text>
-                  ) : (
-                    budgets.map(budget => (
-                      <TouchableOpacity
-                        key={budget.id}
-                        style={[styles.budgetOption, selectedBudget === budget.id && styles.selectedBudget]}
-                        onPress={() => setSelectedBudget(budget.id)}
-                      >
-                        <Text style={[styles.budgetOptionText, selectedBudget === budget.id && {color: '#FFFFFF'}]}>
-                          {budget.name} - रू {(budget.amount - budget.spent).toLocaleString()} बाँकी
-                        </Text>
-                      </TouchableOpacity>
-                    ))
-                  )}
-                  <TextInput
-                    style={styles.input}
-                    placeholder="खर्चको विवरण (जस्तै: दाल भात)"
-                    value={expenseDesc}
-                    onChangeText={setExpenseDesc}
-                  />
-                  <TextInput
-                    style={styles.input}
-                    placeholder="रकम (जस्तै: 500)"
-                    value={expenseAmount}
-                    onChangeText={setExpenseAmount}
-                    keyboardType="numeric"
-                  />
-                  <TouchableOpacity style={styles.button} onPress={addExpense}>
-                    <Text style={styles.buttonText}>खर्च थप्नुहोस्</Text>
-                  </TouchableOpacity>
-                </View>
-
-                <View style={styles.expensesList}>
-                  <Text style={styles.formTitle}>हालका खर्चहरू</Text>
-                  {expenses.slice(-5).reverse().map(expense => (
-                    <View key={expense.id} style={styles.expenseCard}>
-                      <Text style={styles.expenseDesc}>{expense.description}</Text>
-                      <Text style={styles.expenseAmount}>रू {expense.amount.toLocaleString()}</Text>
-                      <Text style={styles.expenseDate}>{expense.date}</Text>
-                    </View>
-                  ))}
-                </View>
-              </ScrollView>
-            );
-
-            const renderCurrentScreen = () => {
-              switch (currentScreen) {
-                case 'budgets': return renderBudgets();
-                case 'expenses': return renderExpenses();
-                default: return renderHome();
-              }
-            };
-
-            return (
-              <>
-                <StatusBar barStyle="light-content" backgroundColor="#FF6B35" />
-                {renderCurrentScreen()}
-                
-                <View style={styles.bottomNav}>
-                  <TouchableOpacity 
-                    style={[styles.navButton, currentScreen === 'home' && styles.activeNav]}
-                    onPress={() => setCurrentScreen('home')}
-                  >
-                    <Text style={[styles.navText, currentScreen === 'home' && {color: '#FFFFFF'}]}>गृह</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity 
-                    style={[styles.navButton, currentScreen === 'budgets' && styles.activeNav]}
-                    onPress={() => setCurrentScreen('budgets')}
-                  >
-                    <Text style={[styles.navText, currentScreen === 'budgets' && {color: '#FFFFFF'}]}>बजेट</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity 
-                    style={[styles.navButton, currentScreen === 'expenses' && styles.activeNav]}
-                    onPress={() => setCurrentScreen('expenses')}
-                  >
-                    <Text style={[styles.navText, currentScreen === 'expenses' && {color: '#FFFFFF'}]}>खर्च</Text>
-                  </TouchableOpacity>
-                </View>
-              </>
-            );
+      - name: Build sophisticated web app
+        script: |
+          # Build the existing sophisticated web app with shadcn/ui components
+          npm run build
+          
+      - name: Initialize Capacitor
+        script: |
+          # Create Capacitor config
+          cat > capacitor.config.ts << 'EOF'
+          import { CapacitorConfig } from '@capacitor/cli';
+          
+          const config: CapacitorConfig = {
+            appId: 'com.smartbudgettracker',
+            appName: 'Smart Budget Tracker',
+            webDir: 'dist',
+            server: {
+              androidScheme: 'https'
+            }
           };
-
-          const styles = StyleSheet.create({
-            container: {
-              flex: 1,
-              backgroundColor: '#F8F9FA',
-            },
-            header: {
-              backgroundColor: '#FF6B35',
-              padding: 30,
-              alignItems: 'center',
-            },
-            title: {
-              fontSize: 28,
-              fontWeight: 'bold',
-              color: '#FFFFFF',
-              marginBottom: 5,
-            },
-            subtitle: {
-              fontSize: 16,
-              color: '#FFE4D6',
-            },
-            content: {
-              padding: 20,
-              paddingBottom: 80,
-            },
-            sectionTitle: {
-              fontSize: 24,
-              fontWeight: 'bold',
-              color: '#2C3E50',
-              marginBottom: 15,
-            },
-            welcomeCard: {
-              backgroundColor: '#FFFFFF',
-              padding: 25,
-              borderRadius: 12,
-              elevation: 3,
-              alignItems: 'center',
-            },
-            welcomeTitle: {
-              fontSize: 22,
-              fontWeight: 'bold',
-              color: '#FF6B35',
-              marginBottom: 10,
-            },
-            welcomeText: {
-              fontSize: 16,
-              color: '#2C3E50',
-              textAlign: 'center',
-              lineHeight: 24,
-            },
-            budgetCard: {
-              backgroundColor: '#FFFFFF',
-              padding: 20,
-              marginBottom: 15,
-              borderRadius: 12,
-              elevation: 3,
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.1,
-              shadowRadius: 4,
-            },
-            budgetName: {
-              fontSize: 18,
-              fontWeight: 'bold',
-              color: '#2C3E50',
-              marginBottom: 5,
-            },
-            budgetAmount: {
-              fontSize: 16,
-              color: '#27AE60',
-              fontWeight: 'bold',
-            },
-            budgetSpent: {
-              fontSize: 14,
-              color: '#E74C3C',
-            },
-            budgetRemaining: {
-              fontSize: 14,
-              color: '#3498DB',
-            },
-            formContainer: {
-              padding: 20,
-            },
-            formTitle: {
-              fontSize: 20,
-              fontWeight: 'bold',
-              color: '#2C3E50',
-              marginBottom: 20,
-            },
-            input: {
-              borderWidth: 1,
-              borderColor: '#BDC3C7',
-              borderRadius: 8,
-              padding: 15,
-              marginBottom: 15,
-              fontSize: 16,
-              backgroundColor: '#FFFFFF',
-            },
-            button: {
-              backgroundColor: '#FF6B35',
-              padding: 15,
-              borderRadius: 8,
-              alignItems: 'center',
-              elevation: 2,
-            },
-            buttonText: {
-              color: '#FFFFFF',
-              fontSize: 16,
-              fontWeight: 'bold',
-            },
-            label: {
-              fontSize: 16,
-              fontWeight: 'bold',
-              color: '#2C3E50',
-              marginBottom: 10,
-            },
-            budgetOption: {
-              padding: 15,
-              borderWidth: 1,
-              borderColor: '#BDC3C7',
-              borderRadius: 8,
-              marginBottom: 10,
-              backgroundColor: '#FFFFFF',
-            },
-            selectedBudget: {
-              backgroundColor: '#FF6B35',
-              borderColor: '#FF6B35',
-            },
-            budgetOptionText: {
-              fontSize: 16,
-              color: '#2C3E50',
-            },
-            expensesList: {
-              padding: 20,
-              paddingTop: 0,
-            },
-            expenseCard: {
-              backgroundColor: '#FFFFFF',
-              padding: 15,
-              marginBottom: 10,
-              borderRadius: 8,
-              elevation: 1,
-            },
-            expenseDesc: {
-              fontSize: 16,
-              fontWeight: 'bold',
-              color: '#2C3E50',
-            },
-            expenseAmount: {
-              fontSize: 14,
-              color: '#E74C3C',
-              fontWeight: 'bold',
-            },
-            expenseDate: {
-              fontSize: 12,
-              color: '#7F8C8D',
-            },
-            emptyText: {
-              textAlign: 'center',
-              color: '#7F8C8D',
-              fontSize: 16,
-              fontStyle: 'italic',
-              padding: 20,
-            },
-            bottomNav: {
-              flexDirection: 'row',
-              backgroundColor: '#FFFFFF',
-              borderTopWidth: 1,
-              borderTopColor: '#E0E0E0',
-              position: 'absolute',
-              bottom: 0,
-              left: 0,
-              right: 0,
-              elevation: 5,
-            },
-            navButton: {
-              flex: 1,
-              padding: 15,
-              alignItems: 'center',
-            },
-            activeNav: {
-              backgroundColor: '#FF6B35',
-            },
-            navText: {
-              fontSize: 14,
-              fontWeight: 'bold',
-              color: '#2C3E50',
-            },
-          });
-
-          export default App;
+          
+          export default config;
           EOF
           
-      - name: Build Android APK
-        script: |
-          cd SmartBudgetTracker/android
-          echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
-          echo "org.gradle.jvmargs=-Xmx4096M" >> gradle.properties
-          echo "android.useAndroidX=true" >> gradle.properties
-          echo "android.enableJetifier=true" >> gradle.properties
-          chmod +x gradlew
-          ./gradlew clean
-          ./gradlew assembleRelease --no-daemon
+          # Initialize Capacitor with web app
+          npx cap init "Smart Budget Tracker" com.smartbudgettracker
           
-      - name: Copy APK to artifacts
+      - name: Convert to mobile APK
         script: |
-          cd SmartBudgetTracker
-          APK_FILE=$(find android/app/build/outputs/apk/release -name "*.apk" -type f | head -1)
-          if [ -f "$APK_FILE" ]; then
-            cp "$APK_FILE" ../smart-budget-tracker.apk
-            echo "✅ Smart Budget Tracker APK ready!"
-            ls -la ../smart-budget-tracker.apk
-            echo "APK size: $(du -h ../smart-budget-tracker.apk | cut -f1)"
-          else
-            echo "❌ APK not found!"
-            find . -name "*.apk" -type f 2>/dev/null || echo "No APK files found"
-          fi
+          # Add Android platform
+          npx cap add android
+          
+          # Copy web assets (preserves all styling and components)
+          npx cap copy
+          
+          # Ensure web assets are properly linked
+          npx cap sync
+          
+      - name: Build standalone APK
+        script: |
+          cd android
+          
+          # Create keystore for signing
+          keytool -genkey -v -keystore smart-budget-tracker.keystore \
+            -alias smartbudgettracker -keyalg RSA -keysize 2048 -validity 10000 \
+            -dname "CN=Smart Budget Tracker, OU=IT, O=Company, L=City, S=State, C=NP" \
+            -storepass smartbudget123 -keypass smartbudget123
+          
+          # Configure signing in build.gradle
+          sed -i 's/android {/android {\n    signingConfigs {\n        release {\n            storeFile file("smart-budget-tracker.keystore")\n            storePassword "smartbudget123"\n            keyAlias "smartbudgettracker"\n            keyPassword "smartbudget123"\n        }\n    }/' app/build.gradle
+          
+          sed -i 's/buildTypes {/buildTypes {\n        release {\n            signingConfig signingConfigs.release\n        }/' app/build.gradle
+          
+          # Build signed APK
+          ./gradlew assembleRelease
+          
+          # Verify APK exists
+          ls -la app/build/outputs/apk/release/
           
     artifacts:
-      - smart-budget-tracker.apk
+      - android/app/build/outputs/apk/release/*.apk
+      - android/app/build/outputs/bundle/release/*.aab
     publishing:
       email:
         recipients:
-          - kissonFloyd@example.com
+          - smartbudgettracker@example.com
         notify:
           success: true
           failure: true
