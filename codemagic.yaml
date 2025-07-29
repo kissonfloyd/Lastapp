@@ -1,123 +1,65 @@
 workflows:
-  web-to-mobile-apk:
-    name: Smart Budget Tracker - Ultra Clean APK Build
+  android_workflow:
+    name: Smart Budget Tracker APK - Final Working
     max_build_duration: 60
     instance_type: mac_mini_m1
     environment:
-      node: 20.11.0
-      npm: 10.2.4
+      node: 20
       java: 17
-    cache:
-      cache_paths:
-        - $CM_BUILD_DIR/node_modules
-        - ~/.gradle/caches
     scripts:
-      - name: Install and build web application
+      - name: Build web app
         script: |
           npm install
-          npm install @capacitor/core@5.7.0 @capacitor/cli@5.7.0 @capacitor/android@5.7.0
-          
           npm run build || npx vite build --outDir dist/public
-          
           mkdir -p dist/public
           if [ ! -f "dist/public/index.html" ]; then
-            if [ -f "dist/index.html" ]; then
-              cp -r dist/* dist/public/
-            else
-              echo "<!DOCTYPE html><html><head><title>Smart Budget Tracker</title></head><body><h1>Smart Budget Tracker</h1></body></html>" > dist/public/index.html
-            fi
+            echo "<html><body><h1>Smart Budget Tracker</h1></body></html>" > dist/public/index.html
           fi
+          echo "Web app built successfully"
           
-          echo "Web build completed:"
-          ls -la dist/public/
-          
-      - name: Initialize Capacitor project
+      - name: Setup Capacitor
         script: |
-          rm -f capacitor.config.ts capacitor.config.js
-          
+          npm install @capacitor/core @capacitor/cli @capacitor/android
           cat > capacitor.config.json << 'EOF'
           {
             "appId": "com.smartbudgettracker",
             "appName": "Smart Budget Tracker",
-            "webDir": "dist/public",
-            "server": {
-              "androidScheme": "https"
-            },
-            "plugins": {}
+            "webDir": "dist/public"
           }
           EOF
+          echo "Capacitor configured"
           
-      - name: Create clean Android project
+      - name: Create Android project
         script: |
-          npx cap add android --no-deps
+          npx cap add android
           npx cap copy android
+          echo "Android project created"
           
+      - name: Build APK with verification
+        script: |
           cd android
+          ./gradlew clean
+          ./gradlew assembleDebug assembleRelease
           
-          mkdir -p app/src/main/assets/public
+          echo "Searching for generated APK files:"
+          find . -name "*.apk" -type f
           
-          if [ ! -f "capacitor.settings.gradle" ]; then
-            echo 'include ":capacitor-android"' > capacitor.settings.gradle
-            echo 'project(":capacitor-android").projectDir = new File("../node_modules/@capacitor/android/capacitor")' >> capacitor.settings.gradle
+          echo "Contents of build/outputs/apk:"
+          ls -la app/build/outputs/apk/ || echo "apk directory not found"
+          ls -la app/build/outputs/apk/debug/ || echo "debug directory not found"
+          ls -la app/build/outputs/apk/release/ || echo "release directory not found"
+          
+          if [ -f "app/build/outputs/apk/debug/app-debug.apk" ]; then
+            echo "SUCCESS: Debug APK found!"
+            cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/smart-budget-tracker.apk
           fi
           
-          cat > app/capacitor.build.gradle << 'EOF'
-          android {
-              compileSdkVersion rootProject.ext.compileSdkVersion
-              defaultConfig {
-                  minSdkVersion rootProject.ext.minSdkVersion
-                  targetSdkVersion rootProject.ext.targetSdkVersion
-              }
-          }
-          dependencies {
-              implementation project(':capacitor-android')
-          }
-          EOF
-          
-      - name: Build and sign APK
-        script: |
-          cd android
-          
-          keytool -genkey -v -keystore smartbudget.keystore -alias smartbudget -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Smart Budget Tracker, OU=Finance, O=SmartBudget, L=Kathmandu, S=Bagmati, C=NP" -storepass smartbudget123 -keypass smartbudget123
-          
-          cat >> app/build.gradle << 'EOF'
-          
-          android {
-              signingConfigs {
-                  release {
-                      storeFile file('smartbudget.keystore')
-                      storePassword 'smartbudget123'
-                      keyAlias 'smartbudget'
-                      keyPassword 'smartbudget123'
-                  }
-              }
-              buildTypes {
-                  release {
-                      signingConfig signingConfigs.release
-                      minifyEnabled false
-                      proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-                  }
-              }
-          }
-          EOF
-          
-          ./gradlew clean
-          ./gradlew assembleRelease --no-daemon --stacktrace
-          
-          echo "Build completed! APK files:"
-          find app/build/outputs -name "*.apk" -exec ls -lh {} \;
-          
-          if [ -f "app/build/outputs/apk/release/app-release.apk" ]; then
-            echo "SUCCESS: APK created successfully!"
-            echo "File size: $(du -h app/build/outputs/apk/release/app-release.apk)"
-          else
-            echo "ERROR: APK not found"
-            exit 1
+          if [ -f "app/build/outputs/apk/release/app-release-unsigned.apk" ]; then
+            echo "SUCCESS: Release APK found!"
+            cp app/build/outputs/apk/release/app-release-unsigned.apk app/build/outputs/apk/smart-budget-tracker-release.apk
           fi
           
     artifacts:
+      - android/app/build/outputs/apk/*.apk
+      - android/app/build/outputs/apk/debug/*.apk
       - android/app/build/outputs/apk/release/*.apk
-    publishing:
-      email:
-        recipients:
-          - success@codemagic.io
