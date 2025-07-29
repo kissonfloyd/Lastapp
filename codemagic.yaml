@@ -1,6 +1,6 @@
 workflows:
   web-to-mobile-apk:
-    name: Smart Budget Tracker - Web to Mobile APK (Working)
+    name: Smart Budget Tracker - Web to Mobile APK (Final Working)
     max_build_duration: 60
     instance_type: mac_mini_m1
     environment:
@@ -12,112 +12,114 @@ workflows:
         - $CM_BUILD_DIR/node_modules
         - ~/.gradle/caches
     scripts:
-      - name: Install dependencies and setup
+      - name: Install dependencies and Capacitor
         script: |
-          # Install all dependencies
           npm install
-          
-          # Install Capacitor
           npm install @capacitor/core @capacitor/cli @capacitor/android
           
-      - name: Create build script if missing
+      - name: Build web app
         script: |
-          # Check if build script exists, if not create it
-          if ! npm run build --dry-run 2>/dev/null; then
-            echo "Creating build script..."
-            # Create a simple build script that works with Vite
-            npm install -g vite
-            npm run dev &
-            sleep 5
-            kill $!
-            vite build --outDir dist/public
-          else
-            echo "Build script exists, using it..."
-            npm run build
-          fi
+          # Build the web app
+          npm run build || {
+            echo "Build script failed, trying alternative..."
+            npx vite build --outDir dist/public
+          }
           
-          # Verify build output
-          echo "Build output contents:"
-          ls -la dist/
-          if [ -d "dist/public" ]; then
-            ls -la dist/public/
-          else
+          # Ensure dist/public exists with content
+          if [ ! -d "dist/public" ]; then
             echo "Creating dist/public structure..."
             mkdir -p dist/public
-            if [ -f "dist/index.html" ]; then
-              cp -r dist/* dist/public/ || true
+            if [ -d "dist" ]; then
+              find dist -type f -name "*.html" -o -name "*.js" -o -name "*.css" | head -1 | xargs -I {} cp {} dist/public/ 2>/dev/null || true
             fi
           fi
           
-      - name: Setup Capacitor
+          echo "Final build output:"
+          ls -la dist/public/ || echo "dist/public not found"
+          
+      - name: Setup Capacitor without init conflict
         script: |
-          # Create Capacitor config
-          cat > capacitor.config.ts << 'EOF'
-          import { CapacitorConfig } from '@capacitor/cli';
+          # Create package.json entry for Capacitor (avoids init command)
+          node -e "
+            const pkg = require('./package.json');
+            pkg.capacitor = {
+              appId: 'com.smartbudgettracker',
+              appName: 'Smart Budget Tracker',
+              webDir: 'dist/public'
+            };
+            require('fs').writeFileSync('package.json', JSON.stringify(pkg, null, 2));
+          "
           
-          const config: CapacitorConfig = {
-            appId: 'com.smartbudgettracker',
-            appName: 'Smart Budget Tracker',
-            webDir: 'dist/public',
-            server: {
-              androidScheme: 'https'
+          # Create capacitor.config.json (JSON format to avoid TS conflict)
+          cat > capacitor.config.json << 'EOF'
+          {
+            "appId": "com.smartbudgettracker",
+            "appName": "Smart Budget Tracker",
+            "webDir": "dist/public",
+            "server": {
+              "androidScheme": "https"
             }
-          };
-          
-          export default config;
+          }
           EOF
           
-          # Initialize Capacitor
-          npx cap init "Smart Budget Tracker" com.smartbudgettracker
+          # Remove any existing capacitor.config.ts to avoid conflicts
+          rm -f capacitor.config.ts
           
-      - name: Build mobile APK
+      - name: Add Android platform and copy assets
         script: |
-          # Add Android platform
+          # Add Android platform directly (skip init)
           npx cap add android
           
           # Copy web assets
-          npx cap copy
-          npx cap sync
+          npx cap copy android
+          npx cap sync android
           
-          # Verify assets copied
-          echo "Checking Android assets:"
-          ls -la android/app/src/main/assets/ || echo "Assets directory not found"
+          # Verify assets
+          echo "Android assets:"
+          find android/app/src/main/assets -type f | head -10 || echo "No assets found"
           
-      - name: Generate signed APK
+      - name: Build signed APK
         script: |
           cd android
           
           # Create keystore
-          keytool -genkey -v -keystore app.keystore \
-            -alias key0 -keyalg RSA -keysize 2048 -validity 10000 \
-            -dname "CN=Smart Budget Tracker, OU=Dev, O=Company, L=City, S=State, C=US" \
-            -storepass android -keypass android
+          keytool -genkey -v -keystore release.keystore \
+            -alias release -keyalg RSA -keysize 2048 -validity 10000 \
+            -dname "CN=Smart Budget Tracker, OU=Mobile, O=App, L=City, S=State, C=NP" \
+            -storepass release123 -keypass release123
           
-          # Update build.gradle for signing
-          cat >> app/build.gradle << 'EOF'
+          # Configure signing in build.gradle
+          cat >> app/build.gradle << 'GRADLE'
           
-          android.signingConfigs {
-              release {
-                  storeFile file('app.keystore')
-                  storePassword 'android'
-                  keyAlias 'key0'
-                  keyPassword 'android'
+          android {
+              signingConfigs {
+                  release {
+                      storeFile file('../release.keystore')
+                      storePassword 'release123'
+                      keyAlias 'release'
+                      keyPassword 'release123'
+                  }
+              }
+              buildTypes {
+                  release {
+                      signingConfig signingConfigs.release
+                      minifyEnabled false
+                  }
               }
           }
-          android.buildTypes.release.signingConfig android.signingConfigs.release
-          EOF
+          GRADLE
           
           # Build APK
-          ./gradlew assembleRelease
+          ./gradlew clean assembleRelease
           
-          # List output files
-          echo "Generated files:"
-          find . -name "*.apk" -o -name "*.aab" | head -10
+          # Show results
+          echo "Build complete! Generated files:"
+          find app/build/outputs -name "*.apk" -o -name "*.aab"
           
     artifacts:
-      - android/app/build/outputs/**/*.apk
-      - android/app/build/outputs/**/*.aab
+      - android/app/build/outputs/apk/release/*.apk
+      - android/app/build/outputs/bundle/release/*.aab
     publishing:
       email:
         recipients:
-          - build@smartbudgettracker.com
+          - developer@smartbudgettracker.com
