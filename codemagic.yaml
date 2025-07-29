@@ -1,6 +1,6 @@
 workflows:
   web-to-mobile-apk:
-    name: Smart Budget Tracker - Web to Mobile APK (Clean Working)
+    name: Smart Budget Tracker - Web to Mobile APK (Final Success)
     max_build_duration: 60
     instance_type: mac_mini_m1
     environment:
@@ -12,10 +12,10 @@ workflows:
         - $CM_BUILD_DIR/node_modules
         - ~/.gradle/caches
     scripts:
-      - name: Install and build web app
+      - name: Install dependencies and build web app
         script: |
           npm install
-          npm install @capacitor/core @capacitor/cli @capacitor/android
+          npm install @capacitor/core@5.7.0 @capacitor/cli@5.7.0 @capacitor/android@5.7.0
           
           npm run build || npx vite build --outDir dist/public
           
@@ -26,10 +26,10 @@ workflows:
             fi
           fi
           
-          echo "Web build ready:"
+          echo "Web build completed:"
           ls -la dist/public/
           
-      - name: Setup Capacitor configuration
+      - name: Setup Capacitor with proper configuration
         script: |
           rm -f capacitor.config.ts capacitor.config.js
           
@@ -44,31 +44,68 @@ workflows:
           }
           EOF
           
-      - name: Create Android project
+          # Update package.json for Capacitor
+          node -e "
+            const fs = require('fs');
+            const pkg = JSON.parse(fs.readFileSync('package.json'));
+            pkg.capacitor = {
+              appId: 'com.smartbudgettracker',
+              appName: 'Smart Budget Tracker',
+              webDir: 'dist/public'
+            };
+            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));
+          "
+          
+      - name: Create Android project with proper files
         script: |
           npx cap add android
           npx cap copy android
           
           cd android
-          if [ ! -f "capacitor.settings.gradle" ]; then
-            echo 'include ":capacitor-android"' > capacitor.settings.gradle
-          fi
           
-      - name: Build signed APK
+          # Create missing capacitor.build.gradle
+          cat > app/capacitor.build.gradle << 'EOF'
+          // Capacitor Android Build Configuration
+          android {
+              compileSdkVersion rootProject.ext.compileSdkVersion
+              defaultConfig {
+                  minSdkVersion rootProject.ext.minSdkVersion
+                  targetSdkVersion rootProject.ext.targetSdkVersion
+                  versionCode 1
+                  versionName "1.0.0"
+              }
+          }
+          
+          dependencies {
+              implementation project(':capacitor-android')
+          }
+          EOF
+          
+          # Create missing capacitor.settings.gradle
+          cat > capacitor.settings.gradle << 'EOF'
+          include ':capacitor-android'
+          project(':capacitor-android').projectDir = new File('../node_modules/@capacitor/android/capacitor')
+          EOF
+          
+          echo "Android project setup completed"
+          
+      - name: Build production signed APK
         script: |
           cd android
           
-          keytool -genkey -v -keystore release.keystore -alias release -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Smart Budget Tracker, OU=Finance, O=SmartApps, L=Kathmandu, S=Province3, C=NP" -storepass release123 -keypass release123
+          # Create keystore
+          keytool -genkey -v -keystore app.keystore -alias key0 -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Smart Budget Tracker, OU=Finance, O=SmartApps, L=Kathmandu, S=Province3, C=NP" -storepass android -keypass android
           
+          # Add signing configuration to build.gradle
           cat >> app/build.gradle << 'EOF'
           
           android {
               signingConfigs {
                   release {
-                      storeFile file('../release.keystore')
-                      storePassword 'release123'
-                      keyAlias 'release'
-                      keyPassword 'release123'
+                      storeFile file('app.keystore')
+                      storePassword 'android'
+                      keyAlias 'key0'
+                      keyPassword 'android'
                   }
               }
               buildTypes {
@@ -80,14 +117,18 @@ workflows:
           }
           EOF
           
-          ./gradlew clean assembleRelease
+          # Build APK
+          ./gradlew clean
+          ./gradlew assembleRelease
           
-          echo "Generated APK files:"
-          find app/build/outputs -name "*.apk"
+          echo "APK build completed! Files generated:"
+          find app/build/outputs -name "*.apk" -exec ls -lh {} \;
           
     artifacts:
       - android/app/build/outputs/apk/release/*.apk
     publishing:
       email:
         recipients:
-          - builds@smartbudgettracker.com
+          - success@smartbudgettracker.com
+        notify:
+          success: true
