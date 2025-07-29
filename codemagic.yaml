@@ -1,15 +1,12 @@
 workflows:
   web-to-mobile-apk:
-    name: Smart Budget Tracker - Web to Mobile APK (Bulletproof)
+    name: Smart Budget Tracker - Web to Mobile APK (Clean Working)
     max_build_duration: 60
     instance_type: mac_mini_m1
     environment:
-      android_signing:
-        - smartbudget_keystore
       node: 20.11.0
       npm: 10.2.4
       java: 17
-      ANDROID_HOME: /opt/android-sdk-linux
     cache:
       cache_paths:
         - $CM_BUILD_DIR/node_modules
@@ -20,28 +17,22 @@ workflows:
           npm install
           npm install @capacitor/core @capacitor/cli @capacitor/android
           
-          # Build web app with fallback
           npm run build || npx vite build --outDir dist/public
           
-          # Ensure proper structure
           mkdir -p dist/public
           if [ ! -f "dist/public/index.html" ]; then
             if [ -f "dist/index.html" ]; then
               cp -r dist/* dist/public/
-            else
-              echo "<html><body><h1>Smart Budget Tracker</h1></body></html>" > dist/public/index.html
             fi
           fi
           
           echo "Web build ready:"
           ls -la dist/public/
           
-      - name: Setup Capacitor cleanly
+      - name: Setup Capacitor configuration
         script: |
-          # Remove any conflicting configs
           rm -f capacitor.config.ts capacitor.config.js
           
-          # Create clean JSON config
           cat > capacitor.config.json << 'EOF'
           {
             "appId": "com.smartbudgettracker",
@@ -49,109 +40,54 @@ workflows:
             "webDir": "dist/public",
             "server": {
               "androidScheme": "https"
-            },
-            "android": {
-              "buildOptions": {
-                "keystorePath": "./release.keystore",
-                "keystoreAlias": "release",
-                "keystorePassword": "release123",
-                "keystoreAliasPassword": "release123"
-              }
             }
           }
           EOF
           
-          # Add to package.json
-          node -e "
-            const fs = require('fs');
-            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-            pkg.capacitor = {
-              appId: 'com.smartbudgettracker',
-              appName: 'Smart Budget Tracker',
-              webDir: 'dist/public'
-            };
-            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));
-          "
-          
       - name: Create Android project
         script: |
-          # Add android platform
           npx cap add android
-          
-          # Copy web assets
           npx cap copy android
           
-          # Fix Gradle settings path issue
           cd android
-          
-          # Create proper capacitor.settings.gradle if missing
           if [ ! -f "capacitor.settings.gradle" ]; then
-            cat > capacitor.settings.gradle << 'GRADLE'
-          // Capacitor Android Settings
-          include ':capacitor-android'
-          project(':capacitor-android').projectDir = new File('./capacitor')
-          GRADLE
+            echo 'include ":capacitor-android"' > capacitor.settings.gradle
           fi
           
-          echo "Android project structure:"
-          ls -la
-          
-      - name: Build production APK
+      - name: Build signed APK
         script: |
           cd android
           
-          # Create release keystore
-          keytool -genkey -v -keystore release.keystore \
-            -alias release -keyalg RSA -keysize 2048 -validity 10000 \
-            -dname "CN=Smart Budget Tracker, OU=Finance, O=SmartApps, L=Kathmandu, S=Province3, C=NP" \
-            -storepass release123 -keypass release123
+          keytool -genkey -v -keystore release.keystore -alias release -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Smart Budget Tracker, OU=Finance, O=SmartApps, L=Kathmandu, S=Province3, C=NP" -storepass release123 -keypass release123
           
-          # Update app/build.gradle for signing
-          cp app/build.gradle app/build.gradle.backup
+          cat >> app/build.gradle << 'EOF'
           
-          cat >> app/build.gradle << 'GRADLE'
-
-android {
-    signingConfigs {
-        release {
-            if (project.hasProperty('android.injected.signing.store.file')) {
-                storeFile file(project.property('android.injected.signing.store.file'))
-                storePassword project.property('android.injected.signing.store.password')
-                keyAlias project.property('android.injected.signing.key.alias')
-                keyPassword project.property('android.injected.signing.key.password')
-            } else {
-                storeFile file('release.keystore')
-                storePassword 'release123'
-                keyAlias 'release'
-                keyPassword 'release123'
-            }
-        }
-    }
-    buildTypes {
-        release {
-            signingConfig signingConfigs.release
-            minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-        }
-    }
-}
-GRADLE
+          android {
+              signingConfigs {
+                  release {
+                      storeFile file('../release.keystore')
+                      storePassword 'release123'
+                      keyAlias 'release'
+                      keyPassword 'release123'
+                  }
+              }
+              buildTypes {
+                  release {
+                      signingConfig signingConfigs.release
+                      minifyEnabled false
+                  }
+              }
+          }
+          EOF
           
-          # Clean and build
-          ./gradlew clean
-          ./gradlew assembleRelease --stacktrace
+          ./gradlew clean assembleRelease
           
-          # Verify APK creation
           echo "Generated APK files:"
-          find app/build/outputs -name "*.apk" -exec ls -la {} \;
+          find app/build/outputs -name "*.apk"
           
     artifacts:
       - android/app/build/outputs/apk/release/*.apk
-      - android/app/build/outputs/bundle/release/*.aab
     publishing:
       email:
         recipients:
           - builds@smartbudgettracker.com
-        notify:
-          success: true
-          failure: true
