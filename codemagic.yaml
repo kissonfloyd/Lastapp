@@ -28,7 +28,7 @@ workflows:
       - name: Configure Expo build
         script: |
           cd react-native-app
-          npx expo prebuild --platform android --clear
+          npx expo prebuild --platform android
           
       - name: Build Android APK
         script: |
