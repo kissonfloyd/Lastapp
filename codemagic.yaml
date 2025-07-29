@@ -1,13 +1,12 @@
 workflows:
   web-to-mobile-apk:
-    name: Smart Budget Tracker - Bulletproof APK Build
+    name: Smart Budget Tracker - Ultra Clean APK Build
     max_build_duration: 60
     instance_type: mac_mini_m1
     environment:
       node: 20.11.0
       npm: 10.2.4
       java: 17
-      ANDROID_HOME: /opt/android-sdk-linux
     cache:
       cache_paths:
         - $CM_BUILD_DIR/node_modules
@@ -18,10 +17,8 @@ workflows:
           npm install
           npm install @capacitor/core@5.7.0 @capacitor/cli@5.7.0 @capacitor/android@5.7.0
           
-          # Build web app
           npm run build || npx vite build --outDir dist/public
           
-          # Ensure proper directory structure
           mkdir -p dist/public
           if [ ! -f "dist/public/index.html" ]; then
             if [ -f "dist/index.html" ]; then
@@ -31,15 +28,13 @@ workflows:
             fi
           fi
           
-          echo "Web build structure:"
+          echo "Web build completed:"
           ls -la dist/public/
           
       - name: Initialize Capacitor project
         script: |
-          # Clean any existing configs
           rm -f capacitor.config.ts capacitor.config.js
           
-          # Create minimal Capacitor config
           cat > capacitor.config.json << 'EOF'
           {
             "appId": "com.smartbudgettracker",
@@ -52,28 +47,20 @@ workflows:
           }
           EOF
           
-          echo "Capacitor config created"
-          
       - name: Create clean Android project
         script: |
-          # Add Android platform
           npx cap add android --no-deps
-          
-          # Copy web assets
           npx cap copy android
           
           cd android
           
-          # Create minimal capacitor gradle files
           mkdir -p app/src/main/assets/public
           
-          # Ensure proper gradle configuration
           if [ ! -f "capacitor.settings.gradle" ]; then
             echo 'include ":capacitor-android"' > capacitor.settings.gradle
             echo 'project(":capacitor-android").projectDir = new File("../node_modules/@capacitor/android/capacitor")' >> capacitor.settings.gradle
           fi
           
-          # Create minimal capacitor.build.gradle
           cat > app/capacitor.build.gradle << 'EOF'
           android {
               compileSdkVersion rootProject.ext.compileSdkVersion
@@ -87,16 +74,12 @@ workflows:
           }
           EOF
           
-          echo "Android project configured"
-          
       - name: Build and sign APK
         script: |
           cd android
           
-          # Generate keystore
           keytool -genkey -v -keystore smartbudget.keystore -alias smartbudget -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Smart Budget Tracker, OU=Finance, O=SmartBudget, L=Kathmandu, S=Bagmati, C=NP" -storepass smartbudget123 -keypass smartbudget123
           
-          # Configure signing in build.gradle
           cat >> app/build.gradle << 'EOF'
           
           android {
@@ -118,17 +101,12 @@ workflows:
           }
           EOF
           
-          # Clean build
           ./gradlew clean
-          
-          # Build release APK
           ./gradlew assembleRelease --no-daemon --stacktrace
           
-          # Display results
           echo "Build completed! APK files:"
           find app/build/outputs -name "*.apk" -exec ls -lh {} \;
           
-          # Verify APK exists
           if [ -f "app/build/outputs/apk/release/app-release.apk" ]; then
             echo "SUCCESS: APK created successfully!"
             echo "File size: $(du -h app/build/outputs/apk/release/app-release.apk)"
