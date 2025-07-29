@@ -24,16 +24,14 @@ workflows:
           npx @react-native-community/cli@latest init SmartBudgetTracker
           cd SmartBudgetTracker
           
-      - name: Create Smart Budget Tracker app with storage
+      - name: Create Smart Budget Tracker app (no external dependencies)
         script: |
           cd SmartBudgetTracker
-          npm install @react-native-async-storage/async-storage@1.19.3
           
-          # Create App.tsx with simple navigation (no external dependencies)
+          # Create App.tsx with simple state management (no external dependencies)
           cat > App.tsx << 'EOF'
-          import React, { useState, useEffect } from 'react';
+          import React, { useState } from 'react';
           import { View, Text, StyleSheet, ScrollView, StatusBar, TouchableOpacity, TextInput, Alert } from 'react-native';
-          import AsyncStorage from '@react-native-async-storage/async-storage';
 
           interface Budget {
             id: string;
@@ -61,29 +59,7 @@ workflows:
             const [expenseAmount, setExpenseAmount] = useState('');
             const [selectedBudget, setSelectedBudget] = useState('');
 
-            useEffect(() => {
-              loadData();
-            }, []);
-
-            const loadData = async () => {
-              try {
-                const savedBudgets = await AsyncStorage.getItem('budgets');
-                const savedExpenses = await AsyncStorage.getItem('expenses');
-                if (savedBudgets) setBudgets(JSON.parse(savedBudgets));
-                if (savedExpenses) setExpenses(JSON.parse(savedExpenses));
-              } catch (error) {
-                console.log('Error loading data:', error);
-              }
-            };
-
-            const saveData = async (newBudgets: Budget[], newExpenses: Expense[]) => {
-              try {
-                await AsyncStorage.setItem('budgets', JSON.stringify(newBudgets));
-                await AsyncStorage.setItem('expenses', JSON.stringify(newExpenses));
-              } catch (error) {
-                console.log('Error saving data:', error);
-              }
-            };
+            // Simple state management without AsyncStorage for testing
 
             const addBudget = () => {
               if (!budgetName || !budgetAmount) {
@@ -98,7 +74,6 @@ workflows:
               };
               const newBudgets = [...budgets, newBudget];
               setBudgets(newBudgets);
-              saveData(newBudgets, expenses);
               setBudgetName('');
               setBudgetAmount('');
               Alert.alert('सफल', 'बजेट थपियो!');
@@ -128,7 +103,6 @@ workflows:
               
               setExpenses(newExpenses);
               setBudgets(newBudgets);
-              saveData(newBudgets, newExpenses);
               setExpenseDesc('');
               setExpenseAmount('');
               Alert.alert('सफल', 'खर्च थपियो!');
@@ -144,7 +118,10 @@ workflows:
                 <View style={styles.content}>
                   <Text style={styles.sectionTitle}>तपाईका बजेटहरू</Text>
                   {budgets.length === 0 ? (
-                    <Text style={styles.emptyText}>कुनै बजेट छैन। नयाँ बजेट थप्नुहोस्!</Text>
+                    <View style={styles.welcomeCard}>
+                      <Text style={styles.welcomeTitle}>स्वागत छ!</Text>
+                      <Text style={styles.welcomeText}>तपाईंको पहिलो बजेट सिर्जना गर्न "बजेट" ट्याबमा जानुहोस्</Text>
+                    </View>
                   ) : (
                     budgets.map(budget => (
                       <View key={budget.id} style={styles.budgetCard}>
@@ -300,6 +277,25 @@ workflows:
               fontWeight: 'bold',
               color: '#2C3E50',
               marginBottom: 15,
+            },
+            welcomeCard: {
+              backgroundColor: '#FFFFFF',
+              padding: 25,
+              borderRadius: 12,
+              elevation: 3,
+              alignItems: 'center',
+            },
+            welcomeTitle: {
+              fontSize: 22,
+              fontWeight: 'bold',
+              color: '#FF6B35',
+              marginBottom: 10,
+            },
+            welcomeText: {
+              fontSize: 16,
+              color: '#2C3E50',
+              textAlign: 'center',
+              lineHeight: 24,
             },
             budgetCard: {
               backgroundColor: '#FFFFFF',
