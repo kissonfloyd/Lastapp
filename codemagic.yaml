@@ -19,30 +19,55 @@ workflows:
           include: true
           source: true
     scripts:
-      - name: Install dependencies
+      - name: Create React Native project
         script: |
-          cd react-native-app
-          npm cache clean --force
-          npm install
+          npx @react-native-community/cli@latest init SmartBudgetTracker
+          cd SmartBudgetTracker
           
-      - name: Configure Expo build
+      - name: Install Smart Budget Tracker dependencies
         script: |
-          cd react-native-app
-          npx expo prebuild --platform android
+          cd SmartBudgetTracker
+          npm install @react-native-async-storage/async-storage@1.19.3
+          npm install @react-navigation/native@6.1.9
+          npm install @react-navigation/bottom-tabs@6.5.11
+          npm install @react-navigation/stack@6.3.20
+          npm install react-native-safe-area-context@4.6.3
+          npm install react-native-screens@3.22.0
+          npm install react-native-chart-kit@6.12.0
+          npm install react-native-svg@13.9.0
+          
+      - name: Copy Smart Budget Tracker source code
+        script: |
+          # Copy app files from repository
+          if [ -d "$CM_BUILD_DIR/react-native-app/src" ]; then
+            cp -r $CM_BUILD_DIR/react-native-app/src SmartBudgetTracker/
+            echo "✅ Copied Smart Budget Tracker source files"
+          else
+            echo "⚠️ No source files found, using template"
+          fi
+          
+          # Copy App.tsx if it exists
+          if [ -f "$CM_BUILD_DIR/react-native-app/App.tsx" ]; then
+            cp $CM_BUILD_DIR/react-native-app/App.tsx SmartBudgetTracker/
+            echo "✅ Copied Smart Budget Tracker App.tsx"
+          else
+            echo "⚠️ No App.tsx found, using template"
+          fi
           
       - name: Build Android APK
         script: |
-          cd react-native-app/android
+          cd SmartBudgetTracker/android
           echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
           echo "org.gradle.jvmargs=-Xmx4096M" >> gradle.properties
           echo "android.useAndroidX=true" >> gradle.properties
           echo "android.enableJetifier=true" >> gradle.properties
           chmod +x gradlew
+          ./gradlew clean
           ./gradlew assembleRelease --no-daemon
           
       - name: Copy APK to artifacts
         script: |
-          cd react-native-app
+          cd SmartBudgetTracker
           APK_FILE=$(find android/app/build/outputs/apk/release -name "*.apk" -type f | head -1)
           if [ -f "$APK_FILE" ]; then
             cp "$APK_FILE" ../smart-budget-tracker.apk
