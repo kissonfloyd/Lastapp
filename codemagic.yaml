@@ -4,8 +4,8 @@ workflows:
     max_build_duration: 60
     instance_type: mac_mini_m1
     environment:
-      node: 18.17.0
-      npm: 9.6.7
+      node: 20.11.0
+      npm: 10.2.4
       java: 17
     cache:
       cache_paths:
@@ -22,8 +22,8 @@ workflows:
       - name: Install dependencies
         script: |
           cd react-native-app
-          npm install --legacy-peer-deps
-          npx expo install --fix
+          npm cache clean --force
+          npm install
           
       - name: Configure Expo build
         script: |
